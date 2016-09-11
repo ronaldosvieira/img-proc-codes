@@ -98,6 +98,46 @@ static void display1(void)
 	  glVertex2d(25, 231);
    glEnd();
 
+   // dashed lines
+   glEnable(GL_LINE_STIPPLE);
+   glColor3f(0, 0, 0);
+   glLineStipple(2, 0xAAAA);
+   glLineWidth(1);
+
+   // vertical
+   glBegin(GL_LINES);
+	  glVertex2f(82, 1);
+	  glVertex2f(82, 231);
+   glEnd();
+
+   glBegin(GL_LINES);
+   	  glVertex2f(140, 1);
+   	  glVertex2f(140, 231);
+   glEnd();
+
+   glBegin(GL_LINES);
+      glVertex2f(198, 1);
+      glVertex2f(198, 231);
+   glEnd();
+
+   // horizontal
+   glBegin(GL_LINES);
+	  glVertex2f(25, 58);
+	  glVertex2f(255, 58);
+   glEnd();
+
+   glBegin(GL_LINES);
+   	  glVertex2f(25, 116);
+   	  glVertex2f(255, 116);
+   glEnd();
+
+   glBegin(GL_LINES);
+      glVertex2f(25, 174);
+      glVertex2f(255, 174);
+   glEnd();
+
+   glDisable(GL_LINE_STIPPLE);
+
    glutSwapBuffers ();
 }
 
