@@ -35,6 +35,8 @@ int window1 = 0;
 int window2 = 0;
 int brightnessSlider = 128;
 
+int x1, y1, x2, y2;
+
 void idle() {
 	glutPostRedisplay();
 }
@@ -128,15 +130,27 @@ static void display1(void) {
 
 	glDisable(GL_LINE_STIPPLE);
 
+	float fx = 0.0f;
+
 	// draw default curve
-	glBegin(GL_LINES);
+	glBegin(GL_LINE_STRIP);
 		glColor3f(0.0f, 0.0f, 0.0f);
-		for (int i = 1; i < BOX_SIZE - 1; ++i) {
-			glVertex2f(BOX_LEFT + i, BOX_BOTTOM - i);
-			glVertex2f(BOX_LEFT + i + 1, BOX_BOTTOM - i - 1);
+
+		for (int x = 0; x < 255; ++x) {
+			//if (i < x1) {x = x1; y = y1;}
+			//else {x = 255; y = 255;}
+
+			//if (x < x1) fx = (x / x1) * y1;
+			//else fx = y1 + ((x - x1) / (255.0f - y1));
+
+			if (x < x1) fx += x? (1.0f * y1) / x1 : 0;
+			else fx += (255.0f - fx) / (255.0f - x);
+			printf("fx = %f\n", fx);
+
+			glVertex2f(BOX_LEFT + (x / 255.0f) * BOX_SIZE,
+					BOX_BOTTOM - (fx / 255.0f) * BOX_SIZE);
 		}
 	glEnd();
-
 	glutSwapBuffers();
 }
 
@@ -215,6 +229,10 @@ void motion(int x, int y ) {
 void init() {
 	imgOriginal = new PixelLab();
 	imgOriginal->Read("figs/lenaGray.png");
+
+	x1 = 0.6f * 255;
+	y1 = 0.3f * 255;
+	x2 = y2 = 0.6f;
 
 	img = new PixelLab();
 	img->Copy(imgOriginal);
