@@ -34,7 +34,7 @@ static void display1(void)
    glMatrixMode(GL_PROJECTION);
    glLoadIdentity();
    // reverse 'Y' to allow correct mouse click (0 value is in the upper left corner for mouse functions)
-   gluOrtho2D(0, 296, 296, 0); // You could use "glOrtho(0, 64, 256, 0, -5, 5);" instead if you want 3D features
+   gluOrtho2D(0, 256, 256, 0); // You could use "glOrtho(0, 64, 256, 0, -5, 5);" instead if you want 3D features
 
    glMatrixMode(GL_MODELVIEW);
    glLoadIdentity();
@@ -42,60 +42,60 @@ static void display1(void)
    // left vertical
    glBegin(GL_QUADS);
       glColor3f(0.0f, 0.0f, 0.0f);
-      glVertex2d(8, 8);
-      glVertex2d(24, 8);
-      glVertex2d(24, 264);
-      glVertex2d(8, 264);
+      glVertex2d(0, 0);
+      glVertex2d(16, 0);
+      glVertex2d(16, 232);
+      glVertex2d(0, 232);
    glEnd();
 
    glBegin(GL_QUADS);
       glColor3f(0.0f, 0.0f, 0.0f);
-      glVertex2d( 9, 9);
-      glVertex2d(23, 9);
+      glVertex2d( 1, 1);
+      glVertex2d(15, 1);
       glColor3f(1.0f, 1.0f, 1.0f);
-      glVertex2d(23, 263);
-      glVertex2d( 9, 263);
+      glVertex2d(15, 231);
+      glVertex2d( 1, 231);
    glEnd();
 
    glBegin(GL_LINES);
       glColor3f(1.0f, 0.0f, 0.0f);
-      glVertex2d( 9, brightnessSlider + 8);
-      glVertex2d(23, brightnessSlider + 8);
+      glVertex2d( 1, brightnessSlider);
+      glVertex2d(15, brightnessSlider);
    glEnd();
 
    // bottom horizontal
       glBegin(GL_QUADS);
       glColor3f(0.0f, 0.0f, 0.0f);
-      glVertex2d(32, 272);
-      glVertex2d(32, 288);
-      glVertex2d(288, 288);
-      glVertex2d(288, 272);
+      glVertex2d(24, 240);
+      glVertex2d(24, 256);
+      glVertex2d(256, 256);
+      glVertex2d(256, 240);
    glEnd();
 
    glBegin(GL_QUADS);
       glColor3f(1.0f, 1.0f, 1.0f);
-      glVertex2d(33, 273);
-      glVertex2d(33, 287);
+      glVertex2d(25, 241);
+      glVertex2d(25, 255);
       glColor3f(0.0f, 0.0f, 0.0f);
-      glVertex2d(287, 287);
-      glVertex2d(287, 273);
+      glVertex2d(255, 255);
+      glVertex2d(255, 241);
    glEnd();
 
    // center square
    glBegin(GL_QUADS);
    	  glColor3f(0.0f, 0.0f, 0.0f);
-   	  glVertex2d(32, 8);
-	  glVertex2d(288, 8);
-	  glVertex2d(288, 264);
-	  glVertex2d(32, 264);
+   	  glVertex2d(24, 0);
+	  glVertex2d(256, 0);
+	  glVertex2d(256, 232);
+	  glVertex2d(24, 232);
    glEnd();
 
    glBegin(GL_QUADS);
-	  glColor3f(0.95f, 0.95f, 0.95f);
-	  glVertex2d(33, 9);
-	  glVertex2d(287, 9);
-	  glVertex2d(287, 263);
-	  glVertex2d(33, 263);
+	  glColor3f(0.94f, 0.94f, 0.94f);
+	  glVertex2d(25, 1);
+	  glVertex2d(255, 1);
+	  glVertex2d(255, 231);
+	  glVertex2d(25, 231);
    glEnd();
 
    glutSwapBuffers ();
@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
    glutSetWindow (window1);   // Change current window to 1 (all callbacks will be set to this window)
    glutDisplayFunc(display1);
    glutPositionWindow(20, 30);
-   glutReshapeWindow(296, 296);
+   glutReshapeWindow(256, 256);
    glutMouseFunc( mouse );
    glutMotionFunc( motion );
    glutSpecialFunc(specialKeys);
@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
    glutSetWindow (window2); // Change current window to 2
    glutDisplayFunc(display2);
    glutReshapeWindow(imgOriginal->GetWidth(),imgOriginal->GetHeight());
-   glutPositionWindow(450, 30);
+   glutPositionWindow(286, 30);
 
    glutMainLoop();
 
