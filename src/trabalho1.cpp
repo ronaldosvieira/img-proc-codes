@@ -35,7 +35,7 @@ int window1 = 0;
 int window2 = 0;
 int brightnessSlider = 128;
 
-int x1, y1, x2, y2;
+float pts[4][2];
 
 void idle() {
 	glutPostRedisplay();
@@ -130,25 +130,26 @@ static void display1(void) {
 
 	glDisable(GL_LINE_STIPPLE);
 
-	float fx = 0.0f;
-
 	// draw default curve
+	float fx = 0.0f;
+	float dy = 0.0f;
+	int i = 0;
+
 	glBegin(GL_LINE_STRIP);
 		glColor3f(0.0f, 0.0f, 0.0f);
 
-		for (int x = 0; x < 255; ++x) {
-			//if (i < x1) {x = x1; y = y1;}
-			//else {x = 255; y = 255;}
+		for (int x = 0; x < 256; ++x) {
+			while(x > pts[i][0]) ++i;
 
-			//if (x < x1) fx = (x / x1) * y1;
-			//else fx = y1 + ((x - x1) / (255.0f - y1));
+			if (!i) dy = pts[i][0]? pts[i][1] / pts[i][0] : 0;
+			else dy = (pts[i][1] - pts[i - 1][1]) / (pts[i][0] - pts[i - 1][0]);
 
-			if (x < x1) fx += x? (1.0f * y1) / x1 : 0;
-			else fx += (255.0f - fx) / (255.0f - x);
-			printf("fx = %f\n", fx);
+			fx += dy;
 
-			glVertex2f(BOX_LEFT + (x / 255.0f) * BOX_SIZE,
-					BOX_BOTTOM - (fx / 255.0f) * BOX_SIZE);
+			printf("--\nx = %d\ni = %d\ndy = %f\nfx = %f\n--\n", x, i, dy, fx);
+
+			glVertex2f(BOX_LEFT + (x / 256.0f) * BOX_SIZE,
+					BOX_BOTTOM - (fx / 256.0f) * BOX_SIZE);
 		}
 	glEnd();
 	glutSwapBuffers();
@@ -230,9 +231,17 @@ void init() {
 	imgOriginal = new PixelLab();
 	imgOriginal->Read("figs/lenaGray.png");
 
-	x1 = 0.6f * 255;
-	y1 = 0.3f * 255;
-	x2 = y2 = 0.6f;
+	pts[0][0] = 0.0f;
+	pts[0][1] = 0.0f;
+
+	pts[1][0] = 0.3f * 256;
+	pts[1][1] = 0.6f * 256;
+
+	pts[2][0] = 0.6f * 256;
+	pts[2][1] = 0.3f * 256;
+
+	pts[3][0] = 256.0f;
+	pts[3][1] = 256.0f;
 
 	img = new PixelLab();
 	img->Copy(imgOriginal);
