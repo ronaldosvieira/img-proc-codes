@@ -247,6 +247,7 @@ int main(int argc, char *argv[]) {
 	glutDisplayFunc(display2);
 	glutReshapeWindow(imgOriginal->GetWidth(),imgOriginal->GetHeight());
 	glutPositionWindow(286, 30);
+	glutKeyboardFunc(key);
 
 	glutMainLoop();
 
