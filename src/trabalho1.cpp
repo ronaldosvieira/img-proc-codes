@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
 	glutSetWindow(window2); // Change current window to 2
 	glutDisplayFunc(display2);
 	glutReshapeWindow(imgOriginal->GetWidth(),imgOriginal->GetHeight());
-	glutPositionWindow(286, 30);
+	glutPositionWindow(25 + CWIDTH, 30);
 	glutKeyboardFunc(key);
 
 	glutMainLoop();
