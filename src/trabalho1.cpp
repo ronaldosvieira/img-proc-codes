@@ -51,7 +51,7 @@ static void display1(void) {
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	// left vertical
+	// draw left vertical color box
 	glBegin(GL_QUADS);
 		glColor3f(0.0f, 0.0f, 0.0f);
 		glVertex2d(0, 0);
@@ -62,20 +62,20 @@ static void display1(void) {
 
 	glBegin(GL_QUADS);
 		glColor3f(0.0f, 0.0f, 0.0f);
-		glVertex2d( 1, 1);
+		glVertex2d(1, 1);
 		glVertex2d(15, 1);
 		glColor3f(1.0f, 1.0f, 1.0f);
 		glVertex2d(15, 231);
-		glVertex2d( 1, 231);
+		glVertex2d(1, 231);
 	glEnd();
 
 	glBegin(GL_LINES);
 		glColor3f(1.0f, 0.0f, 0.0f);
-		glVertex2d( 1, brightnessSlider);
+		glVertex2d(1, brightnessSlider);
 		glVertex2d(15, brightnessSlider);
 	glEnd();
 
-	// bottom horizontal
+	// draw bottom horizontal color box
 		glBegin(GL_QUADS);
 		glColor3f(0.0f, 0.0f, 0.0f);
 		glVertex2d(24, 240);
@@ -93,7 +93,7 @@ static void display1(void) {
 		glVertex2d(255, 241);
 	glEnd();
 
-	// center square
+	// draw center control box
 	glBegin(GL_QUADS);
 		glColor3f(0.0f, 0.0f, 0.0f);
 		glVertex2d(24, 0);
@@ -110,13 +110,13 @@ static void display1(void) {
 		glVertex2d(25, 231);
 	glEnd();
 
-	// dashed lines
+	// draw dashed lines
 	glEnable(GL_LINE_STIPPLE);
 	glColor3f(0, 0, 0);
 	glLineStipple(2, 0xAAAA);
 	glLineWidth(1);
 
-	// vertical
+	// vertical dashed lines
 	for (int i = 1; i < DASHED_AMOUNT; ++i) {
 		glBegin(GL_LINES);
 			glVertex2f(BOX_LEFT + (i * DASHED_SPACING), BOX_TOP);
@@ -124,7 +124,7 @@ static void display1(void) {
 		glEnd();
 	}
 
-	// horizontal
+	// horizontal dashed lines
 	for (int i = 1; i < DASHED_AMOUNT; ++i) {
 		glBegin(GL_LINES);
 			glVertex2f(BOX_LEFT, BOX_TOP + (i * DASHED_SPACING));
