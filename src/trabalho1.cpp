@@ -69,12 +69,6 @@ static void display1(void) {
 		glVertex2d(1, 231);
 	glEnd();
 
-	glBegin(GL_LINES);
-		glColor3f(1.0f, 0.0f, 0.0f);
-		glVertex2d(1, brightnessSlider);
-		glVertex2d(15, brightnessSlider);
-	glEnd();
-
 	// draw bottom horizontal color box
 		glBegin(GL_QUADS);
 		glColor3f(0.0f, 0.0f, 0.0f);
@@ -245,9 +239,9 @@ int main(int argc, char *argv[]) {
 	glutDisplayFunc(display1);
 	glutPositionWindow(20, 30);
 	glutReshapeWindow(CWIDTH, CHEIGHT);
-	glutMouseFunc(mouse);
-	glutMotionFunc(motion);
-	glutSpecialFunc(specialKeys);
+	//glutMouseFunc(mouse);
+	//glutMotionFunc(motion);
+	//glutSpecialFunc(specialKeys);
 	glutKeyboardFunc(key);
 
 	///////////////////////////////////////////////////////////
