@@ -18,6 +18,17 @@
 #define CWIDTH 256
 #define CHEIGHT 256
 
+#define BOX_SIZE 232
+
+#define DASHED_AMOUNT 4
+
+#define BOX_LEFT (CWIDTH - BOX_SIZE)
+#define BOX_RIGHT CWIDTH
+#define BOX_TOP 0
+#define BOX_BOTTOM BOX_SIZE
+
+#define DASHED_SPACING (BOX_SIZE / DASHED_AMOUNT)
+
 // Image Objects
 PixelLab *img = NULL, *imgOriginal = NULL;
 int window1 = 0;
@@ -106,36 +117,20 @@ static void display1(void) {
 	glLineWidth(1);
 
 	// vertical
-	glBegin(GL_LINES);
-		glVertex2f(82, 1);
-		glVertex2f(82, 231);
-	glEnd();
-
-	glBegin(GL_LINES);
-		glVertex2f(140, 1);
-		glVertex2f(140, 231);
-	glEnd();
-
-	glBegin(GL_LINES);
-		glVertex2f(198, 1);
-		glVertex2f(198, 231);
-	glEnd();
+	for (int i = 1; i < DASHED_AMOUNT; ++i) {
+		glBegin(GL_LINES);
+			glVertex2f(BOX_LEFT + (i * DASHED_SPACING), BOX_TOP);
+			glVertex2f(BOX_LEFT + (i * DASHED_SPACING), BOX_BOTTOM);
+		glEnd();
+	}
 
 	// horizontal
-	glBegin(GL_LINES);
-		glVertex2f(25, 58);
-		glVertex2f(255, 58);
-	glEnd();
-
-	glBegin(GL_LINES);
-		glVertex2f(25, 116);
-		glVertex2f(255, 116);
-	glEnd();
-
-	glBegin(GL_LINES);
-		glVertex2f(25, 174);
-		glVertex2f(255, 174);
-	glEnd();
+	for (int i = 1; i < DASHED_AMOUNT; ++i) {
+		glBegin(GL_LINES);
+			glVertex2f(BOX_LEFT, BOX_TOP + (i * DASHED_SPACING));
+			glVertex2f(BOX_RIGHT, BOX_TOP + (i * DASHED_SPACING));
+		glEnd();
+	}
 
 	glDisable(GL_LINE_STIPPLE);
 
