@@ -15,6 +15,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <iostream>
+#include <vector>
+
 #define CWIDTH 256
 #define CHEIGHT 256
 
@@ -29,13 +32,18 @@
 
 #define DASHED_SPACING (BOX_SIZE / DASHED_AMOUNT)
 
+typedef struct {
+	float x;
+	float y;
+} Point;
+
 // Image Objects
 PixelLab *img = NULL, *imgOriginal = NULL;
 int window1 = 0;
 int window2 = 0;
 int brightnessSlider = 128;
 
-float pts[4][2];
+std::vector<Point> pts;
 
 void idle() {
 	glutPostRedisplay();
@@ -139,14 +147,12 @@ static void display1(void) {
 		glColor3f(0.0f, 0.0f, 0.0f);
 
 		for (int x = 0; x < 256; ++x) {
-			while(x > pts[i][0]) ++i;
+			while(x > pts[i].x) ++i;
 
-			if (!i) dy = pts[i][0]? pts[i][1] / pts[i][0] : 0;
-			else dy = (pts[i][1] - pts[i - 1][1]) / (pts[i][0] - pts[i - 1][0]);
+			if (!i) dy = pts[i].x? pts[i].y / pts[i].x : 0;
+			else dy = (pts[i].y - pts[i - 1].y) / (pts[i].x - pts[i - 1].x);
 
 			fx += dy;
-
-			printf("--\nx = %d\ni = %d\ndy = %f\nfx = %f\n--\n", x, i, dy, fx);
 
 			glVertex2f(BOX_LEFT + (x / 256.0f) * BOX_SIZE,
 					BOX_BOTTOM - (fx / 256.0f) * BOX_SIZE);
@@ -231,17 +237,17 @@ void init() {
 	imgOriginal = new PixelLab();
 	imgOriginal->Read("figs/lenaGray.png");
 
-	pts[0][0] = 0.0f;
-	pts[0][1] = 0.0f;
+	Point p1 = {0.0f, 0.0f};
+	pts.push_back(p1);
 
-	pts[1][0] = 0.3f * 256;
-	pts[1][1] = 0.6f * 256;
+	Point p2 = {0.3f * 256, 0.6f * 256};
+	pts.push_back(p2);
 
-	pts[2][0] = 0.6f * 256;
-	pts[2][1] = 0.3f * 256;
+	Point p3 = {0.6f * 256, 0.3f * 256};
+	pts.push_back(p3);
 
-	pts[3][0] = 256.0f;
-	pts[3][1] = 256.0f;
+	Point pn = {256.0f, 256.0f};
+	pts.push_back(pn);
 
 	img = new PixelLab();
 	img->Copy(imgOriginal);
