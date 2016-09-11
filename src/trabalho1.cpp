@@ -112,7 +112,7 @@ static void display1(void) {
 
 	// draw dashed lines
 	glEnable(GL_LINE_STIPPLE);
-	glColor3f(0, 0, 0);
+	glColor3f(0.0f, 0.0f, 0.0f);
 	glLineStipple(2, 0xAAAA);
 	glLineWidth(1);
 
@@ -133,6 +133,15 @@ static void display1(void) {
 	}
 
 	glDisable(GL_LINE_STIPPLE);
+
+	// draw default curve
+	glBegin(GL_LINES);
+		glColor3f(0.0f, 0.0f, 0.0f);
+		for (int i = 1; i < BOX_SIZE - 1; ++i) {
+			glVertex2f(BOX_LEFT + i, BOX_BOTTOM - i);
+			glVertex2f(BOX_LEFT + i + 1, BOX_BOTTOM - i - 1);
+		}
+	glEnd();
 
 	glutSwapBuffers();
 }
