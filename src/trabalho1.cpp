@@ -42,7 +42,7 @@ typedef struct {
 PixelLab *img = NULL, *imgOriginal = NULL;
 int window1 = 0;
 int window2 = 0;
-int brightnessSlider = 128;
+int movingIndex = -1;
 
 std::vector<double> ptsx;
 std::vector<double> ptsy;
@@ -186,7 +186,8 @@ static void display1(void) {
 		Point p = boxToScreenCoords(ptsx[i], ptsy[i]);
 
 		glBegin(GL_LINE_STRIP);
-			glColor3f(0.0f, 0.0f, 0.0f);
+			if (movingIndex == i) glColor3f(1.0f, 0.0f, 0.0f);
+			else glColor3f(0.0f, 0.0f, 0.0f);
 
 			glVertex2f(p.x - 2, p.y - 2);
 			glVertex2f(p.x + 2, p.y - 2);
@@ -242,26 +243,6 @@ static void key(unsigned char key, int x, int y) {
 	 glutPostRedisplay();
 }
 
-// Special Keys callback
-void specialKeys(int key, int x, int y) {
-	switch(key) {
-		case GLUT_KEY_UP:
-			brightnessSlider = (brightnessSlider<0) ? 0 : brightnessSlider-1;
-			modifyImage();
-		break;
-
-		case GLUT_KEY_DOWN:
-			brightnessSlider = (brightnessSlider>255) ? 255 : brightnessSlider+1;
-			modifyImage();
-		break;
-
-		case 'q':
-			exit(0);
-	}
-
-	glutPostRedisplay();
-}
-
 int isWithinBounds(int x, int y, int cx, int cy, int radio) {
 	if (x < cx + radio && x > cx - radio &&
 			y < cy + radio && y > cy - radio) {
@@ -276,11 +257,11 @@ void mouse(int button, int state, int x, int y) {
 	if (button == GLUT_LEFT_BUTTON) {
 		if (state == GLUT_DOWN) {
 			if (isWithinBounds(x, y, 140, 116, 116)) {
-				/*for (int i = 0; i < pts.size(); i++) {
-					if (isWithinBounds(x, y, pts[i].x, pts[i].y, 30)) {
-						return;
+				for (int i = 0; i < (int) ptsx.size(); i++) {
+					if (isWithinBounds(x, y, ptsx[i], ptsy[i], 20)) {
+						movingIndex = i;
 					}
-				}*/
+				}
 
 				Point p = screenToBoxCoords(x, y);
 
@@ -295,6 +276,8 @@ void mouse(int button, int state, int x, int y) {
 					modifyImage();
 				}
 			}
+		} else if (state == GLUT_UP) {
+			movingIndex = -1;
 		}
 	}
 
@@ -304,8 +287,16 @@ void mouse(int button, int state, int x, int y) {
 
 // Motion callback - Capture mouse motion when left button is clicked
 void motion(int x, int y ) {
-	brightnessSlider = y;
-	modifyImage();
+	if (movingIndex != -1) {
+		Point p = screenToBoxCoords(x, y);
+
+		ptsx[movingIndex] = p.x;
+		ptsy[movingIndex] = p.y;
+
+		modifyImage();
+		glutPostWindowRedisplay(window1);
+		glutPostWindowRedisplay(window2);
+	}
 }
 
 void init() {
@@ -345,7 +336,7 @@ int main(int argc, char *argv[]) {
 	glutPositionWindow(20, 30);
 	glutReshapeWindow(CWIDTH, CHEIGHT);
 	glutMouseFunc(mouse);
-	//glutMotionFunc(motion);
+	glutMotionFunc(motion);
 	//glutSpecialFunc(specialKeys);
 	glutKeyboardFunc(key);
 
