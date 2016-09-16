@@ -14,6 +14,7 @@
 #include "GL/glut.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "spline.h"
 
 #include <iostream>
 #include <vector>
@@ -33,8 +34,8 @@
 #define DASHED_SPACING (BOX_SIZE / DASHED_AMOUNT)
 
 typedef struct {
-	float x;
-	float y;
+	double x;
+	double y;
 } Point;
 
 // Image Objects
@@ -43,10 +44,22 @@ int window1 = 0;
 int window2 = 0;
 int brightnessSlider = 128;
 
-std::vector<Point> pts;
+std::vector<double> ptsx;
+std::vector<double> ptsy;
+tk::spline f;
 
 void idle() {
 	glutPostRedisplay();
+}
+
+Point screenToBoxCoords(const double x, const double y) {
+	return Point {(256 * (x - BOX_LEFT)) / BOX_SIZE,
+		BOX_SIZE - (256 * (y - BOX_LEFT)) / BOX_SIZE};
+}
+
+Point boxToScreenCoords(const double x, const double y) {
+	return Point {BOX_LEFT + ((x / 256) * BOX_SIZE),
+		BOX_BOTTOM - ((y / 256) * BOX_SIZE)};
 }
 
 static void display1(void) {
@@ -138,26 +151,31 @@ static void display1(void) {
 
 	glDisable(GL_LINE_STIPPLE);
 
-	// draw default curve
-	float fx = 0.0f;
-	float dy = 0.0f;
-	int i = 0;
-
+	// draw curve
 	glBegin(GL_LINE_STRIP);
 		glColor3f(0.0f, 0.0f, 0.0f);
 
 		for (int x = 0; x < 256; ++x) {
-			while(x > pts[i].x) ++i;
-
-			if (!i) dy = pts[i].x? pts[i].y / pts[i].x : 0;
-			else dy = (pts[i].y - pts[i - 1].y) / (pts[i].x - pts[i - 1].x);
-
-			fx += dy;
-
-			glVertex2f(BOX_LEFT + (x / 256.0f) * BOX_SIZE,
-					BOX_BOTTOM - (fx / 256.0f) * BOX_SIZE);
+			Point p = boxToScreenCoords(x, f(x));
+			glVertex2f(p.x, p.y);
 		}
 	glEnd();
+
+	// draw points
+	for (int i = 0; i < (int) ptsx.size(); i++) {
+		glBegin(GL_LINE_STRIP);
+			glColor3f(0.0f, 0.0f, 0.0f);
+
+			Point p = boxToScreenCoords(ptsx[i], ptsy[i]);
+
+			glVertex2f(p.x - 2, p.y - 2);
+			glVertex2f(p.x + 2, p.y - 2);
+			glVertex2f(p.x + 2, p.y + 2);
+			glVertex2f(p.x - 2, p.y + 2);
+			glVertex2f(p.x - 2, p.y - 2);
+		glEnd();
+	}
+
 	glutSwapBuffers();
 }
 
@@ -219,11 +237,40 @@ void specialKeys(int key, int x, int y) {
 	glutPostRedisplay();
 }
 
+int isWithinBounds(int x, int y, int cx, int cy, int radio) {
+	if (x < cx + radio && x > cx - radio &&
+			y < cy + radio && y > cy - radio) {
+		return 1;
+	}
+
+	return 0;
+}
+
 // Mouse callback - Capture mouse click in the brightness window
 void mouse(int button, int state, int x, int y) {
-	if (button == GLUT_LEFT_BUTTON)
-		if (state == GLUT_DOWN)
-			brightnessSlider = y;
+	if (button == GLUT_LEFT_BUTTON) {
+		if (state == GLUT_DOWN) {
+			if (isWithinBounds(x, y, 140, 116, 116)) {
+				/*for (int i = 0; i < pts.size(); i++) {
+					if (isWithinBounds(x, y, pts[i].x, pts[i].y, 30)) {
+						return;
+					}
+				}*/
+
+				Point p = screenToBoxCoords(x, y);
+
+				int i;
+				for (i = 0; x > ptsx[i]; i++);
+
+				ptsx.insert(ptsx.begin() + i, p.x);
+				ptsy.insert(ptsy.begin() + i, p.y);
+
+				f.set_points(ptsx, ptsy);
+			}
+		}
+	}
+
+
 	modifyImage();
 }
 
@@ -237,22 +284,22 @@ void init() {
 	imgOriginal = new PixelLab();
 	imgOriginal->Read("figs/lenaGray.png");
 
-	Point p1 = {0.0f, 0.0f};
-	pts.push_back(p1);
+	ptsx.push_back(0.0);
+	ptsy.push_back(0.0);
 
-	Point p2 = {0.3f * 256, 0.6f * 256};
-	pts.push_back(p2);
+	ptsx.push_back(0.3 * 256);
+	ptsy.push_back(0.6 * 256);
 
-	Point p3 = {0.6f * 256, 0.3f * 256};
-	pts.push_back(p3);
+	ptsx.push_back(0.6 * 256);
+	ptsy.push_back(0.3 * 256);
 
-	Point pn = {256.0f, 256.0f};
-	pts.push_back(pn);
+	ptsx.push_back(256.0);
+	ptsy.push_back(256.0);
+
+	f.set_points(ptsx, ptsy);
 
 	img = new PixelLab();
 	img->Copy(imgOriginal);
-
-	printf("Change brightness clicking on the left window\n or using the 'up' and 'down' keyboard keys.\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -272,7 +319,7 @@ int main(int argc, char *argv[]) {
 	glutDisplayFunc(display1);
 	glutPositionWindow(20, 30);
 	glutReshapeWindow(CWIDTH, CHEIGHT);
-	//glutMouseFunc(mouse);
+	glutMouseFunc(mouse);
 	//glutMotionFunc(motion);
 	//glutSpecialFunc(specialKeys);
 	glutKeyboardFunc(key);
