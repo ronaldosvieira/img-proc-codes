@@ -227,8 +227,6 @@ void modifyImage() {
 // Keyboard
 static void key(unsigned char key, int x, int y) {
 	 switch (key) {
-		case 27 :
-
 		case 'q':
 			exit(0);
 		break;
@@ -267,21 +265,34 @@ void mouse(int button, int state, int x, int y) {
 					ptsy.insert(ptsy.begin() + i, p.y);
 
 					updateCurve();
-					modifyImage();
 				}
 			}
 		} else if (state == GLUT_UP) {
 			movingIndex = -1;
 		}
-	}
+	} /*else if (button == GLUT_RIGHT_BUTTON) {
+		if (state == GLUT_DOWN) {
+			if (ptsx.size() > 2) {
+				for (int i = 0; i < (int) ptsx.size(); i++) {
+					if (isWithinBounds(x, y, ptsx[i], ptsy[i], 20)) {
+						ptsx.erase(ptsx.begin() + i);
+						ptsy.erase(ptsy.begin() + i);
 
+						updateCurve();
+						modifyImage();
+
+						return;
+					}
+				}
+			}
+		}
+	}*/
 
 	modifyImage();
 }
 
 // Motion callback - Capture mouse motion when left button is clicked
 void motion(int x, int y ) {
-	std::cout << "x=" << x << "y=" << y << std::endl;
 	if (movingIndex != -1) {
 		Point p = screenToBoxCoords(x, y);
 
@@ -336,7 +347,6 @@ int main(int argc, char *argv[]) {
 	glutReshapeWindow(CWIDTH, CHEIGHT);
 	glutMouseFunc(mouse);
 	glutMotionFunc(motion);
-	//glutSpecialFunc(specialKeys);
 	glutKeyboardFunc(key);
 
 	///////////////////////////////////////////////////////////
