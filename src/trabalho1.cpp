@@ -62,6 +62,10 @@ Point boxToScreenCoords(const double x, const double y) {
 		BOX_BOTTOM - ((y / 256) * BOX_SIZE)};
 }
 
+void updateCurve() {
+	if (ptsx.size() > 2) f.set_points(ptsx, ptsy);
+}
+
 static void display1(void) {
 	glClearColor(1.0, 1.0, 1.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
@@ -155,18 +159,34 @@ static void display1(void) {
 	glBegin(GL_LINE_STRIP);
 		glColor3f(0.0f, 0.0f, 0.0f);
 
-		for (int x = 0; x < 256; ++x) {
-			Point p = boxToScreenCoords(x, f(x));
-			glVertex2f(p.x, p.y);
+		if (ptsx.size() > 2) {
+			for (int x = 0; x < 256; ++x) {
+				Point p = boxToScreenCoords(x, f(x));
+				glVertex2f(p.x, p.y);
+			}
+		} else {
+			for (int x = 0; x < 256; ++x) {
+				Point p;
+				if (x <= ptsx[0]) {
+					p = boxToScreenCoords(x, 0.0);
+				} else if (x >= ptsx[ptsx.size() - 1]) {
+					p = boxToScreenCoords(x, 256.0);
+				} else {
+					p = boxToScreenCoords(x,
+						ptsy[0] + ((x - ptsx[0]) / ptsx[1]) * (ptsy[1] - ptsy[0]));
+				}
+
+				glVertex2f(p.x, p.y);
+			}
 		}
 	glEnd();
 
 	// draw points
 	for (int i = 0; i < (int) ptsx.size(); i++) {
+		Point p = boxToScreenCoords(ptsx[i], ptsy[i]);
+
 		glBegin(GL_LINE_STRIP);
 			glColor3f(0.0f, 0.0f, 0.0f);
-
-			Point p = boxToScreenCoords(ptsx[i], ptsy[i]);
 
 			glVertex2f(p.x - 2, p.y - 2);
 			glVertex2f(p.x + 2, p.y - 2);
@@ -262,10 +282,12 @@ void mouse(int button, int state, int x, int y) {
 				int i;
 				for (i = 0; x > ptsx[i]; i++);
 
-				ptsx.insert(ptsx.begin() + i, p.x);
-				ptsy.insert(ptsy.begin() + i, p.y);
+				if (abs(p.x - ptsx[i-1]) > 5) {
+					ptsx.insert(ptsx.begin() + i, p.x);
+					ptsy.insert(ptsy.begin() + i, p.y);
 
-				f.set_points(ptsx, ptsy);
+					updateCurve();
+				}
 			}
 		}
 	}
@@ -287,16 +309,13 @@ void init() {
 	ptsx.push_back(0.0);
 	ptsy.push_back(0.0);
 
-	ptsx.push_back(0.3 * 256);
-	ptsy.push_back(0.6 * 256);
-
-	ptsx.push_back(0.6 * 256);
-	ptsy.push_back(0.3 * 256);
+	ptsx.push_back(128.0);
+	ptsy.push_back(128.0);
 
 	ptsx.push_back(256.0);
 	ptsy.push_back(256.0);
 
-	f.set_points(ptsx, ptsy);
+	updateCurve();
 
 	img = new PixelLab();
 	img->Copy(imgOriginal);
