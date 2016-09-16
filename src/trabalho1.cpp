@@ -206,18 +206,23 @@ static void display2(void) {
 }
 
 void modifyImage() {
-	int value = brightnessSlider - 128; // To make the middle of the slider, zero
-	int pixelVal;
+	pixel **m;
+	// Allocate Matrix
+	img->AllocatePixelMatrix(&m, img->GetHeight(), img->GetWidth() );
+	// Get Image Data
+	img->GetDataAsMatrix(m);
 
-	for (int y = 0; y < imgOriginal->GetHeight(); y++) {
-		for (int x = 0; x < imgOriginal->GetWidth(); x++) {
-			pixelVal = imgOriginal->GetGrayValue(x, y);
-			pixelVal += value;
-			if (pixelVal >= 255) pixelVal = 255;
-			if (pixelVal < 0) pixelVal = 0;
-			img->SetGrayValue(x, y, (uByte) pixelVal);
+	if (img) {
+		for (int y = 0; y < img->GetHeight(); y++) {
+			for (int x = 0; x < img->GetWidth(); x++) {
+				m[y][x].value = f(m[y][x].value);
+			}
 		}
 	}
+	// Update PixelLab Object
+	img->SetDataAsMatrix(m);
+	// Deallocate Matrix
+	img->DeallocatePixelMatrix(&m, img->GetHeight(), img->GetWidth() );
 
 	// Update both windows
 	glutPostWindowRedisplay	(window1);
@@ -287,6 +292,7 @@ void mouse(int button, int state, int x, int y) {
 					ptsy.insert(ptsy.begin() + i, p.y);
 
 					updateCurve();
+					modifyImage();
 				}
 			}
 		}
