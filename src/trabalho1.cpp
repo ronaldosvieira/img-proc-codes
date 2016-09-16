@@ -48,6 +48,8 @@ std::vector<double> ptsx;
 std::vector<double> ptsy;
 tk::spline f;
 
+pixel **m;
+
 void idle() {
 	glutPostRedisplay();
 }
@@ -207,12 +209,6 @@ static void display2(void) {
 }
 
 void modifyImage() {
-	pixel **m;
-	// Allocate Matrix
-	img->AllocatePixelMatrix(&m, img->GetHeight(), img->GetWidth() );
-	// Get Image Data
-	img->GetDataAsMatrix(m);
-
 	if (img) {
 		for (int y = 0; y < img->GetHeight(); y++) {
 			for (int x = 0; x < img->GetWidth(); x++) {
@@ -222,8 +218,6 @@ void modifyImage() {
 	}
 	// Update PixelLab Object
 	img->SetDataAsMatrix(m);
-	// Deallocate Matrix
-	img->DeallocatePixelMatrix(&m, img->GetHeight(), img->GetWidth() );
 
 	// Update both windows
 	glutPostWindowRedisplay	(window1);
@@ -287,6 +281,7 @@ void mouse(int button, int state, int x, int y) {
 
 // Motion callback - Capture mouse motion when left button is clicked
 void motion(int x, int y ) {
+	std::cout << "x=" << x << "y=" << y << std::endl;
 	if (movingIndex != -1) {
 		Point p = screenToBoxCoords(x, y);
 
@@ -294,8 +289,6 @@ void motion(int x, int y ) {
 		ptsy[movingIndex] = p.y;
 
 		modifyImage();
-		glutPostWindowRedisplay(window1);
-		glutPostWindowRedisplay(window2);
 	}
 }
 
@@ -316,6 +309,12 @@ void init() {
 
 	img = new PixelLab();
 	img->Copy(imgOriginal);
+
+	// Allocate Matrix
+	img->AllocatePixelMatrix(&m, img->GetHeight(), img->GetWidth());
+
+	// Get Image Data
+	img->GetDataAsMatrix(m);
 }
 
 int main(int argc, char *argv[]) {
@@ -349,6 +348,9 @@ int main(int argc, char *argv[]) {
 	glutKeyboardFunc(key);
 
 	glutMainLoop();
+
+	// Deallocate Matrix
+	img->DeallocatePixelMatrix(&m, img->GetHeight(), img->GetWidth() );
 
 	return 0;
 }
