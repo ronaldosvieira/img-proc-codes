@@ -54,6 +54,14 @@ void idle() {
 	glutPostRedisplay();
 }
 
+void printPts() {
+	for (int i = 0; i < (int) ptsx.size(); i++) {
+		std::cout << "(" << ptsx[i] /*<< "," << ptsy[i] */<< ")#";
+	}
+
+	std::cout << std::endl;
+}
+
 Point screenToBoxCoords(const double x, const double y) {
 	return Point {(256 * (x - BOX_LEFT)) / BOX_SIZE,
 		BOX_SIZE - (256 * (y - BOX_LEFT)) / BOX_SIZE};
@@ -62,6 +70,25 @@ Point screenToBoxCoords(const double x, const double y) {
 Point boxToScreenCoords(const double x, const double y) {
 	return Point {BOX_LEFT + ((x / 256) * BOX_SIZE),
 		BOX_BOTTOM - ((y / 256) * BOX_SIZE)};
+}
+
+int addPoint(double x, double y) {
+	Point p = screenToBoxCoords(x, y);
+
+	int i;
+	for (i = 0; x > ptsx[i]; i++);
+
+	if (abs(p.x - ptsx[i-1]) > 2) {
+		ptsx.insert(ptsx.begin() + i, p.x);
+		ptsy.insert(ptsy.begin() + i, p.y);
+	}
+
+	return i;
+}
+
+void removePoint(int index) {
+	ptsx.erase(ptsx.begin() + index);
+	ptsy.erase(ptsy.begin() + index);
 }
 
 void updateCurve() {
@@ -209,10 +236,18 @@ static void display2(void) {
 }
 
 void modifyImage() {
+	// Get Image Data
+	imgOriginal->GetDataAsMatrix(m);
+
+	int aux;
 	if (img) {
 		for (int y = 0; y < img->GetHeight(); y++) {
 			for (int x = 0; x < img->GetWidth(); x++) {
-				m[y][x].value = f(m[y][x].value);
+				 aux = f(m[y][x].value);
+
+				 if (aux < 0) m[y][x].value = 0;
+				 else if (aux > 255) m[y][x].value = 255;
+				 else m[y][x].value = aux;
 			}
 		}
 	}
@@ -220,8 +255,8 @@ void modifyImage() {
 	img->SetDataAsMatrix(m);
 
 	// Update both windows
-	glutPostWindowRedisplay	(window1);
-	glutPostWindowRedisplay	(window2);
+	glutPostWindowRedisplay(window1);
+	glutPostWindowRedisplay(window2);
 }
 
 // Keyboard
@@ -252,20 +287,15 @@ void mouse(int button, int state, int x, int y) {
 				for (int i = 0; i < (int) ptsx.size(); i++) {
 					if (isWithinBounds(x, y, ptsx[i], ptsy[i], 20)) {
 						movingIndex = i;
+
+						return;
 					}
 				}
 
-				Point p = screenToBoxCoords(x, y);
+				addPoint(x, y);
 
-				int i;
-				for (i = 0; x > ptsx[i]; i++);
-
-				if (abs(p.x - ptsx[i-1]) > 5) {
-					ptsx.insert(ptsx.begin() + i, p.x);
-					ptsy.insert(ptsy.begin() + i, p.y);
-
-					updateCurve();
-				}
+				updateCurve();
+				modifyImage();
 			}
 		} else if (state == GLUT_UP) {
 			movingIndex = -1;
@@ -280,26 +310,26 @@ void mouse(int button, int state, int x, int y) {
 
 						updateCurve();
 						modifyImage();
-
-						return;
 					}
 				}
 			}
 		}
 	}*/
-
-	modifyImage();
 }
 
 // Motion callback - Capture mouse motion when left button is clicked
 void motion(int x, int y ) {
-	if (movingIndex != -1) {
-		Point p = screenToBoxCoords(x, y);
+	if (movingIndex > 0 && movingIndex < (int) ptsx.size() - 1) {
+		if (x > ptsx[movingIndex - 1] &&
+				x < ptsx[movingIndex + 1]) {
+			removePoint(movingIndex);
+			movingIndex = addPoint(x, y);
 
-		ptsx[movingIndex] = p.x;
-		ptsy[movingIndex] = p.y;
-
-		modifyImage();
+			updateCurve();
+			modifyImage();
+		} else {
+			movingIndex = -1;
+		}
 	}
 }
 
@@ -323,9 +353,6 @@ void init() {
 
 	// Allocate Matrix
 	img->AllocatePixelMatrix(&m, img->GetHeight(), img->GetWidth());
-
-	// Get Image Data
-	img->GetDataAsMatrix(m);
 }
 
 int main(int argc, char *argv[]) {
