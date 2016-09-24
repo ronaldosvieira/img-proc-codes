@@ -335,7 +335,7 @@ void motion(int x, int y ) {
 
 void init() {
 	imgOriginal = new PixelLab();
-	imgOriginal->Read("figs/lenaGray.png");
+	imgOriginal->Read("../figs/lenaGray.png");
 
 	ptsx.push_back(0.0);
 	ptsy.push_back(0.0);
