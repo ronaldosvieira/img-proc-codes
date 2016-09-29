@@ -7,41 +7,50 @@
 #include "GL/glui.h"
 #include "GL/glut.h"
 
+#include "filter_matrix.h"
+
 // Image Objects
 PixelLab *img    = NULL;
 PixelLab *imgMod = NULL;
 
-GLUI_RadioGroup *radio;
+GLUI_Panel *size_panel;
+GLUI_RadioGroup *radio, *radio2;
+GLUI_RadioButton *buttons[3];
 int main_window;
 int UI_width  = 0;
 int option = 0;
+int option2 = 0;
 int brightness = 0;
 int prevBrightness = 0;
 
 char input[512];
 char output[512];
 
-void idle()
-{
+int getLowPassFilter(int filter, int size, int x, int y) {
+	return low[size][filter][x][y];
+}
+
+int getHighPassFilter(int filter, int opt, int x, int y) {
+	return high[opt][filter][x][y];
+}
+
+void idle() {
    if ( glutGetWindow() != main_window)
       glutSetWindow(main_window);
    glutPostRedisplay();
 }
 
-void computeUIWidth()
-{
+void computeUIWidth() {
    int aux, vw;
    GLUI_Master.get_viewport_area(&aux, &aux, &vw, &aux);
    UI_width = img->GetWidth()-vw;
 }
 
-void reshape( int x, int y )
-{
+void reshape( int x, int y ) {
   glutPostRedisplay();
 }
 
-static void display(void)
-{
+static void display(void) {
    glClearColor (0.0, 0.0, 0.0, 0.0);
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -52,80 +61,178 @@ static void display(void)
    glutSwapBuffers();
 }
 
-void modifyImage(char filter, int size) {
+void modifyImageLowPass(int filter, int size) {
    if (img) {
-	   //pixel **m;
-
 	   imgMod->Copy(img);
 
-	   if (size <= 0) return;
-	   if (size % 2 == 0) size--;
-
-	   printf("%d\n", size);
-
-	   //imgMod->AllocatePixelMatrix(&m, imgMod->GetHeight(), imgMod->GetWidth());
-	   //imgMod->GetDataAsMatrix(m);
+	   if (size < 0 || size > 2) return;
 
       for (int y = 0; y < img->GetHeight(); y++) {
          for (int x = 0; x < img->GetWidth(); x++) {
-            if (filter == 'A') {
-            	int sum[3] = {0, 0, 0};
-            	int tempX, tempY;
+			int sum[3] = {0, 0, 0};
+			int tempX, tempY;
+			int amount = 0;
 
-            	for (int i = 0; i < size; i++) {
-            		for (int j = 0; j < size; j++) {
-            			tempX = x + j - (size / 2);
-            			tempY = y + i - (size / 2);
+			for (int i = 0; i < sizeMap[size]; i++) {
+				for (int j = 0; j < sizeMap[size]; j++) {
+					tempX = x + j - (sizeMap[size] / 2);
+					tempY = y + i - (sizeMap[size] / 2);
 
-            			if (tempX >= 0 && tempX < img->GetWidth()
-            					&& tempY >= 0 && tempY < img->GetHeight()) {
-							sum[0] += img->GetR(tempX, tempY);
-							sum[1] += img->GetG(tempX, tempY);
-							sum[2] += img->GetB(tempX, tempY);
-            			}
-            		}
-            	}
+					if (tempX >= 0 && tempX < img->GetWidth()
+							&& tempY >= 0 && tempY < img->GetHeight()) {
+						sum[0] += img->GetR(tempX, tempY) * getLowPassFilter(filter, size, i, j);
+						sum[1] += img->GetG(tempX, tempY) * getLowPassFilter(filter, size, i, j);
+						sum[2] += img->GetB(tempX, tempY) * getLowPassFilter(filter, size, i, j);
 
-            	imgMod->SetRGB( x, y, sum[0] / 9, sum[1] / 9, sum[2] / 9);
-            }
-            if(filter == 'G') imgMod->SetRGB( x, y, img->GetR(x,y),0,0);
-            if(filter == 'S') imgMod->SetRGB( x, y, 0,img->GetG(x,y),0);
-            if(filter == 'P') imgMod->SetRGB( x, y, 0,0,img->GetB(x,y));
+						amount += getLowPassFilter(filter, size, i, j);
+					}
+				}
+			}
+
+			sum[0] /= amount;
+			sum[1] /= amount;
+			sum[2] /= amount;
+
+			imgMod->SetRGB( x, y, sum[0], sum[1], sum[2]);
          }
       }
+   }
+}
 
-      //imgMod->SetDataAsMatrix(m);
-      //imgMod->DeallocatePixelMatrix(&m, imgMod->GetHeight(), imgMod->GetWidth());
+void modifyImageHighPass(int filter, int opt) {
+   if (img) {
+	   imgMod->Copy(img);
+
+	   if (opt == 0 || opt == 1) {
+			for (int y = 0; y < img->GetHeight(); y++) {
+				for (int x = 0; x < img->GetWidth(); x++) {
+					int sum[3] = {0, 0, 0};
+					int tempX, tempY;
+
+					for (int i = 0; i < 3; i++) {
+						for (int j = 0; j < 3; j++) {
+							tempX = x + j - (3 / 2);
+							tempY = y + i - (3 / 2);
+
+							if (tempX >= 0 && tempX < img->GetWidth()
+									&& tempY >= 0 && tempY < img->GetHeight()) {
+								sum[0] += img->GetR(tempX, tempY) * getHighPassFilter(filter, opt, i, j);
+								sum[1] += img->GetG(tempX, tempY) * getHighPassFilter(filter, opt, i, j);
+								sum[2] += img->GetB(tempX, tempY) * getHighPassFilter(filter, opt, i, j);
+							}
+						}
+					}
+
+					if (sum[0] < 0) sum[0] = 0;
+					if (sum[1] < 0) sum[1] = 0;
+					if (sum[2] < 0) sum[2] = 0;
+
+					if (sum[0] > 255) sum[0] = 255;
+					if (sum[1] > 255) sum[1] = 255;
+					if (sum[2] > 255) sum[2] = 255;
+
+					imgMod->SetRGB( x, y, sum[0], sum[1], sum[2]);
+				}
+			}
+	   } else if (opt == 2) {
+		   for (int y = 0; y < img->GetHeight(); y++) {
+				for (int x = 0; x < img->GetWidth(); x++) {
+					int sum[2][3] = {{0, 0, 0}, {0, 0, 0}};
+					int tempX, tempY;
+
+					for (int i = 0; i < 3; i++) {
+						for (int j = 0; j < 3; j++) {
+							tempX = x + j - (3 / 2);
+							tempY = y + i - (3 / 2);
+
+							if (tempX >= 0 && tempX < img->GetWidth()
+									&& tempY >= 0 && tempY < img->GetHeight()) {
+								sum[0][0] += img->GetR(tempX, tempY)
+										* getHighPassFilter(filter, HORIZ, i, j);
+								sum[1][0] += img->GetR(tempX, tempY)
+										* getHighPassFilter(filter, VERT, i, j);
+
+								sum[0][1] += img->GetR(tempX, tempY)
+										* getHighPassFilter(filter, HORIZ, i, j);
+								sum[1][1] += img->GetR(tempX, tempY)
+										* getHighPassFilter(filter, VERT, i, j);
+
+								sum[0][2] += img->GetR(tempX, tempY)
+										* getHighPassFilter(filter, HORIZ, i, j);
+								sum[1][2] += img->GetR(tempX, tempY)
+										* getHighPassFilter(filter, VERT, i, j);
+							}
+						}
+					}
+
+					if (sum[0][0] < 0) sum[0][0] = 0;
+					if (sum[1][0] < 0) sum[1][0] = 0;
+					if (sum[0][1] < 0) sum[0][1] = 0;
+					if (sum[1][1] < 0) sum[1][1] = 0;
+					if (sum[0][2] < 0) sum[0][2] = 0;
+					if (sum[1][2] < 0) sum[1][2] = 0;
+
+					if (sum[0][0] > 255) sum[0][0] = 255;
+					if (sum[1][0] > 255) sum[1][0] = 255;
+					if (sum[0][1] > 255) sum[0][1] = 255;
+					if (sum[1][1] > 255) sum[1][1] = 255;
+					if (sum[0][2] > 255) sum[0][2] = 255;
+					if (sum[1][2] > 255) sum[1][2] = 255;
+
+					int sumR = sum[0][0] + sum[1][0];
+					int sumG = sum[0][1] + sum[1][1];
+					int sumB = sum[0][2] + sum[1][2];
+
+					if (sumR < 0) sumR = 0;
+					if (sumG < 0) sumG = 0;
+					if (sumB < 0) sumB = 0;
+
+					if (sumR > 255) sumR = 255;
+					if (sumG > 255) sumG = 255;
+					if (sumB > 255) sumB = 255;
+
+					imgMod->SetRGB( x, y, sumR, sumG, sumB);
+				}
+			}
+	   }
    }
 }
 
 void control(int value)
 {
-   if(value == 1)
-   {
+   if(value == 1) {
       img->Read(input);
       imgMod->Copy(img);
       glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
    }
-   if(value == 2)
-   {
+   if(value == 2) {
       imgMod->Save(output);
    }
 
-   if(value == 3) { // Radio button
-	   if (option == 0) imgMod->Copy(img);
-	   if (option == 1) modifyImage('A', brightness);
-	   if (option == 2) modifyImage('G', brightness);
-	   if (option == 3) modifyImage('S', brightness);
-	   if (option == 4) modifyImage('P', brightness);
-   }
-   if(value == 4)
-   {
-      if( brightness > prevBrightness)
-         imgMod->AddValueToChannels(1);
-      else
-         imgMod->AddValueToChannels(-1);
-      prevBrightness = brightness;
+   if (value == 3 || value == 4) { // Radio button
+	   if (option == 0) {
+		   size_panel->disable();
+
+		   imgMod->Copy(img);
+	   }
+	   if (option == 1 || option == 2) {
+		   size_panel->enable();
+
+		   buttons[0]->set_name("3x3");
+		   buttons[1]->set_name("5x5");
+		   buttons[2]->set_name("7x7");
+
+		   modifyImageLowPass(option - 1, option2);
+	   }
+	   if (option == 3 || option == 4) {
+		   size_panel->enable();
+
+		   buttons[0]->set_name("Horizontal");
+		   buttons[1]->set_name("Vertical");
+		   buttons[2]->set_name("Both");
+
+		   modifyImageHighPass(option - 3, option2);
+	   }
    }
 }
 
@@ -136,10 +243,6 @@ static void key(unsigned char key, int x, int y)
         case 27 :
         case 'q':
             exit(0);
-        break;
-        case 'm':
-            imgMod->Copy(img);
-            modifyImage('R', 1);
         break;
     }
     glutPostRedisplay();
@@ -162,7 +265,7 @@ int main(int argc, char *argv[])
    main_window = glutCreateWindow("Image Filtering in the Spatial Domain");
 
    glutKeyboardFunc(key);
-   glutIdleFunc( idle);
+   glutIdleFunc(idle);
    glutDisplayFunc(display);
    glutReshapeFunc(reshape);
 
@@ -194,9 +297,16 @@ int main(int argc, char *argv[])
    glui->add_radiobutton_to_group( radio, (char *) "Gaussian" );
    glui->add_radiobutton_to_group( radio, (char *) "Sobel" );
    glui->add_radiobutton_to_group( radio, (char *) "Prewitt" );
-   glui->add_separator_to_panel( channel_panel );
-   GLUI_Spinner* spinner;
-   spinner = glui->add_spinner_to_panel( channel_panel, (char*)"Increase/Decrease brightness", GLUI_SPINNER_INT, &brightness, 4, control);
+   /*GLUI_Spinner* spinner;
+   spinner = glui->add_spinner_to_panel( channel_panel, (char*)"Increase/Decrease brightness", GLUI_SPINNER_INT, &brightness, 4, control);*/
+
+   size_panel = glui->add_panel((char *) "Option" );
+   radio2 = glui->add_radiogroup_to_panel(size_panel, &option2, 4, control);
+	buttons[0] = glui->add_radiobutton_to_group( radio2, (char *) "3x3" );
+	buttons[1] = glui->add_radiobutton_to_group( radio2, (char *) "5x5" );
+	buttons[2] = glui->add_radiobutton_to_group( radio2, (char *) "7x7" );
+
+	size_panel->disable();
 
    glui->add_button((char *) "Quit", 0,(GLUI_Update_CB)exit );
 
