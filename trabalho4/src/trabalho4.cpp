@@ -30,6 +30,22 @@ void idle() {
 	glutPostRedisplay();
 }
 
+pixel** slice(pixel **m, int sx, int sy, int width, int height) {
+	pixel **s = new pixel*[height];
+
+	for (int i = 0; i < height; ++i) {
+		s[i] = new pixel[width];
+	}
+
+	for (int y = 0; y < height; ++y) {
+		for (int x = 0; x < width; ++x) {
+			s[x][y].value = m[x + sx][y + sy].value;
+		}
+	}
+
+	return s;
+}
+
 void computeUIWidth() {
 	int aux, vw;
 	GLUI_Master.get_viewport_area(&aux, &aux, &vw, &aux);
@@ -81,6 +97,62 @@ void applyIFFT() {
 	}
 }
 
+void shiftFFT() {
+  	PixelLab tmp, q0, q1, q2, q3;
+
+  	pixel **m;
+
+	// first crop the image, if it has an odd number of rows or columns
+
+  	/*PixelLab oi;
+	oi.CreateImage(imgMod->GetWidth() & -2, imgMod->GetHeight() & -2, 1);*/
+	imgMod->AllocatePixelMatrix(&m, imgMod->GetWidth(), imgMod->GetHeight());
+	imgMod->GetDataAsMatrix(m);
+	//image = image(Rect(0, 0, image.GetWidth() & -2, image.GetHeight() & -2));
+
+	int cx = imgMod->GetWidth() / 2;
+	int cy = imgMod->GetHeight() / 2;
+
+	// rearrange the quadrants of Fourier image
+	// so that the origin is at the image center
+
+	// q0 = image(Rect(0, 0, cx, cy));
+	// q1 = image(Rect(cx, 0, cx, cy));
+	// q2 = image(Rect(0, cy, cx, cy));
+	// q3 = image(Rect(cx, cy, cx, cy));
+
+	q0.CreateImage(cx, cy);
+	q1.CreateImage(cx, cy);
+	q2.CreateImage(cx, cy);
+	q3.CreateImage(cx, cy);
+	tmp.CreateImage(cx, cy);
+
+	q0.SetDataAsMatrix(slice(m, 0, 0, cx, cy));
+	q1.SetDataAsMatrix(slice(m, cx, 0, cx, cy));
+	q2.SetDataAsMatrix(slice(m, 0, cy, cx, cy));
+	q3.SetDataAsMatrix(slice(m, cx, cy, cx, cy));
+
+	/*q0.Copy(&tmp);
+	q3.Copy(&q0);
+	tmp.Copy(&q3);
+
+	q1.Copy(&tmp);
+	q2.Copy(&q1);
+	tmp.Copy(&q2);*/
+
+	for (int y = 0; y < cy; y++) {
+		for (int x = 0; x < cx; x++) {
+			m[y][x].value = q3.GetGrayValue(x, y);
+			m[y][x + cx].value = q2.GetGrayValue(x, y);
+			m[y + cy][x].value = q1.GetGrayValue(x, y);
+			m[y + cy][x + cx].value = q0.GetGrayValue(x, y);
+		}
+	}
+
+	imgMod->SetDataAsMatrix(m);
+	imgMod->DeallocatePixelMatrix(&m, imgMod->GetHeight(), imgMod->GetWidth());
+}
+
 void control(int value) {
 	switch (value) {
 	case 1:
@@ -93,7 +165,8 @@ void control(int value) {
 		break;
 	case 3:
 		if (option == 0) {
-			applyFFT();
+			shiftFFT();
+			//applyFFT();
 		} else if (option == 1) {
 			applyIFFT();
 		}
