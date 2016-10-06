@@ -127,6 +127,7 @@ void shiftFFT() {
 	q3.CreateImage(cx, cy);
 	tmp.CreateImage(cx, cy);
 
+
 	q0.SetDataAsMatrix(slice(m, 0, 0, cx, cy));
 	q1.SetDataAsMatrix(slice(m, cx, 0, cx, cy));
 	q2.SetDataAsMatrix(slice(m, 0, cy, cx, cy));
@@ -142,14 +143,14 @@ void shiftFFT() {
 
 	for (int y = 0; y < cy; y++) {
 		for (int x = 0; x < cx; x++) {
-			m[y][x].value = q3.GetGrayValue(x, y);
-			m[y][x + cx].value = q2.GetGrayValue(x, y);
-			m[y + cy][x].value = q1.GetGrayValue(x, y);
-			m[y + cy][x + cx].value = q0.GetGrayValue(x, y);
+			imgMod->SetGrayValue(x, y, q3.GetGrayValue(x, y));
+			imgMod->SetGrayValue(x + cx, y, q2.GetGrayValue(x, y));
+			imgMod->SetGrayValue(x, y + cy, q1.GetGrayValue(x, y));
+			imgMod->SetGrayValue(x + cx, y + cy, q0.GetGrayValue(x, y));
 		}
 	}
 
-	imgMod->SetDataAsMatrix(m);
+	// imgMod->SetDataAsMatrix(m);
 	imgMod->DeallocatePixelMatrix(&m, imgMod->GetHeight(), imgMod->GetWidth());
 }
 
