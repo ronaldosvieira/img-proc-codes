@@ -30,6 +30,7 @@ char output[512];
 COMPLEX **m;
 
 bool isTransformed = false;
+bool isFiltered = false;
 
 void idle() {
 	if (glutGetWindow() != main_window)
@@ -54,8 +55,11 @@ pixel** slice(pixel **m, int sx, int sy, int width, int height) {
 }
 
 double isWithin(int radio, int x, int y) {
+	// ideal
 	return sqrt(pow(x, 2) + pow(y, 2)) <= radio;
-	//return 1 / pow(sqrt(pow(x, 2) + pow(y, 2)) / radio, 4);
+
+	// butterworth
+	// return 1 / pow(sqrt(pow(x, 2) + pow(y, 2)) / radio, 2 * 2);
 }
 
 void initMatrix() {
@@ -75,15 +79,20 @@ void updateMatrix() {
 	}
 }
 
-void updateUI() {
-	if (!isTransformed) {
+void updateUI(bool newIsTransformed) {
+	if (newIsTransformed) {
 		transformButton->set_name("Apply IFFT");
 		radio2->enable();
 		spinner->enable();
+
+		isTransformed = true;
 	} else {
 		transformButton->set_name("Apply FFT");
 		radio2->disable();
 		spinner->disable();
+
+		isTransformed = false;
+		isFiltered = false;
 	}
 }
 
@@ -108,63 +117,18 @@ static void display(void) {
 	glutSwapBuffers();
 }
 
-void computeDft(const std::vector<double> &inreal, const std::vector<double> &inimag,
-		std::vector<double> &outreal, std::vector<double> &outimag) {
-
-	unsigned int n = inreal.size();
-	for (unsigned int k = 0; k < n; k++) {  /* For each output element */
-		double sumreal = 0;
-		double sumimag = 0;
-		for (unsigned int t = 0; t < n; t++) {  /* For each input element */
-			double angle = 2 * M_PI * t * k / n;
-			sumreal +=  inreal[t] * cos(angle) + inimag[t] * sin(angle);
-			sumimag += -inreal[t] * sin(angle) + inimag[t] * cos(angle);
-		}
-		outreal[k] = sumreal;
-		outimag[k] = sumimag;
-	}
-}
-
 void applyFFT() {
 	if (img) {
 		if (imgMod->GetNumberOfChannels() == 3) imgMod->ConvertToGrayScale();
-
-		//double *data = new double[imgMod->GetHeight() * imgMod->GetWidth()];
-		////std::vector<double> datar(imgMod->GetHeight() * imgMod->GetWidth());
-		////std::vector<double> datai(imgMod->GetHeight() * imgMod->GetWidth());
-		//std::vector<double> outr(imgMod->GetHeight() * imgMod->GetWidth());
-		//std::vector<double> outi(imgMod->GetHeight() * imgMod->GetWidth());
-
-		/*for (int y = 0; y < imgMod->GetHeight(); y++) {
-			for (int x = 0; x < imgMod->GetWidth(); x++) {
-				////datar[x + y * imgMod->GetWidth()] = imgMod->GetGrayValue(x, y);
-				m[x][y].real = imgMod->GetGrayValue(x, y);
-				m[x][y].imag = 0;
-
-				//std::cout << m[x][y].real << " ";
-			}
-			//std::cout << std::endl;
-		}*/
-
-		/*try {
-			Fft::transform(datar, datai);
-		} catch (char* e) {
-			std::cout << e << std::endl;
-		}*/
-
-		//GFFT<17, double> fourier;
-		//fourier.fft(data);
-
-		//computeDft(datar, datai, outr, outi);
 
 		FFT2D(m, imgMod->GetWidth(), imgMod->GetHeight(), 1);
 
 		for (int y = 0; y < imgMod->GetHeight(); y++) {
 			for (int x = 0; x < imgMod->GetWidth(); x++) {
-				////int value = sqrt(pow(datar[x + y * imgMod->GetWidth()], 2) + pow(datai[x + y * imgMod->GetWidth()], 2));
-				double value = sqrt(pow(m[x][y].real, 2) + pow(m[x][y].imag, 2)) * 255;
+				double value = sqrt(pow(m[x][y].real, 2) + pow(m[x][y].imag, 2)) * 200;
 
-				if (value > 0) value += 50;
+				// adiciona um valor arbitrário
+				if (value > 0) value += 55;
 
 				if (value > 255) value = 255;
 				if (value < 0) value = 0;
@@ -291,7 +255,7 @@ void applyHighPass(int radio) {
 	} else {
 		for (int y = 0; y < img->GetHeight(); y++) {
 			for (int x = 0; x < img->GetWidth(); x++) {
-				if (!isWithin(radio, x - centerx, y - centery)) {
+				if (isWithin(radio, x - centerx, y - centery)) {
 					mat[y][x].R = 0;
 					mat[y][x].G = 0;
 					mat[y][x].B = 0;
@@ -314,7 +278,7 @@ void control(int value) {
 		updateMatrix();
 		glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
 
-		updateUI();
+		updateUI(false);
 		isTransformed = false;
 		break;
 	case 2:
@@ -325,27 +289,28 @@ void control(int value) {
 			shiftFFT();
 			applyFFT();
 
-			updateUI();
-			isTransformed = true;
+			updateUI(true);
 		} else {
 			applyIFFT();
-			//shiftFFT();
+			if (!isFiltered) shiftFFT();
 
-			updateUI();
-			isTransformed = false;
+			updateUI(false);
 		}
 		break;
 	case 4:
-		/*imgMod->Copy(img);
-		updateMatrix();*/shiftFFT();
+		imgMod->Copy(img);
+		updateMatrix();
 
-		updateUI();
+		updateUI(false);
+		isTransformed = false;
 		break;
 	case 6:
 		if (option2 == 0) {
 			applyLowPass(filterRadio);
+			isFiltered = true;
 		} else if (option2 == 1) {
 			applyHighPass(filterRadio);
+			isFiltered = true;
 		}
 		break;
 	case 7:
@@ -380,7 +345,7 @@ int main(int argc, char *argv[]) {
 	glutInitWindowPosition(100, 100);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
 
-	main_window = glutCreateWindow("Image Filtering in the Spatial Domain");
+	main_window = glutCreateWindow("Image Filtering in the Frequency Domain");
 
 	glutKeyboardFunc(key);
 	glutIdleFunc(idle);
@@ -413,13 +378,8 @@ int main(int argc, char *argv[]) {
 	b2->set_w(50);
 
 	GLUI_Panel *channel_panel = glui->add_panel((char *) " Fourier Transform");
-	//glui->add_statictext_to_panel( channel_panel, (char *) "Low-pass");
-	/*radio = glui->add_radiogroup_to_panel(channel_panel, &option, 3, (GLUI_Update_CB) NULL);
-	glui->add_radiobutton_to_group(radio, (char *) "Fast Fourier Transform");
-	glui->add_radiobutton_to_group(radio, (char *) "Inverse Fast Fourier Transform");*/
 
 	transformButton = glui->add_button_to_panel(channel_panel, (char *) "Apply FFT", 3, control);
-	//glui->add_button((char *) "Apply", 3, control);
 
 	GLUI_Panel *filter_panel = glui->add_panel((char *) "Filter");
 	radio2 = glui->add_radiogroup_to_panel(filter_panel, &option2, 5, (GLUI_Update_CB) NULL);
