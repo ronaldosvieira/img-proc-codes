@@ -4,9 +4,10 @@
 #endif
 #include <iostream>
 #include <cmath>
+#include <ctime>
+#include <algorithm>
 #include "GL/glui.h"
 #include "GL/glut.h"
-#include "fft2d.c"
 
 // Image Objects
 PixelLab *img = NULL;
@@ -15,19 +16,18 @@ PixelLab *imgMod = NULL;
 GLUI_RadioGroup *radio, *radio2;
 GLUI_RadioButton *buttons[3];
 GLUI_Button *transformButton;
-GLUI_Spinner *spinner;
+GLUI_Spinner *noiseSpinner, *spinner;
 
 int main_window;
 int UI_width = 0;
 int option = 0;
 int option2 = 0;
 int filterRadio = 0;
+float noiseProb = 0;
 int prevBrightness = 0;
 
 char input[512];
 char output[512];
-
-COMPLEX **m;
 
 bool isTransformed = false;
 bool isFiltered = false;
@@ -62,24 +62,7 @@ double isWithin(int radio, int x, int y) {
 	// return 1 / pow(sqrt(pow(x, 2) + pow(y, 2)) / radio, 2 * 2);
 }
 
-void initMatrix() {
-	m = (COMPLEX**) malloc(sizeof(COMPLEX*) * imgMod->GetWidth());
-
-	for (int i = 0; i < imgMod->GetWidth(); i++) {
-		m[i] = (COMPLEX*) malloc(sizeof(COMPLEX) * imgMod->GetHeight());
-	}
-}
-
-void updateMatrix() {
-	for (int y = 0; y < imgMod->GetHeight(); y++) {
-		for (int x = 0; x < imgMod->GetWidth(); x++) {
-			m[x][y].real = imgMod->GetGrayValue(x, y);
-			m[x][y].imag = 0;
-		}
-	}
-}
-
-void updateUI(bool newIsTransformed) {
+/*void updateUI(bool newIsTransformed) {
 	if (newIsTransformed) {
 		transformButton->set_name("Apply IFFT");
 		radio2->enable();
@@ -94,7 +77,7 @@ void updateUI(bool newIsTransformed) {
 		isTransformed = false;
 		isFiltered = false;
 	}
-}
+}*/
 
 void computeUIWidth() {
 	int aux, vw;
@@ -121,13 +104,13 @@ void applyFFT() {
 	if (img) {
 		if (imgMod->GetNumberOfChannels() == 3) imgMod->ConvertToGrayScale();
 
-		FFT2D(m, imgMod->GetWidth(), imgMod->GetHeight(), 1);
+//		FFT2D(m, imgMod->GetWidth(), imgMod->GetHeight(), 1);
 
-		for (int y = 0; y < imgMod->GetHeight(); y++) {
+/*		for (int y = 0; y < imgMod->GetHeight(); y++) {
 			for (int x = 0; x < imgMod->GetWidth(); x++) {
 				double value = sqrt(pow(m[x][y].real, 2) + pow(m[x][y].imag, 2)) * 200;
 
-				// adiciona um valor arbitrário
+				// adiciona um valor arbitrï¿½rio
 				if (value > 0) value += 55;
 
 				if (value > 255) value = 255;
@@ -135,7 +118,7 @@ void applyFFT() {
 
 				imgMod->SetGrayValue(x, y, value);
 			}
-		}
+		}*/
 	}
 }
 
@@ -143,9 +126,9 @@ void applyIFFT() {
 	if (img) {
 		if (imgMod->GetNumberOfChannels() == 3) imgMod->ConvertToGrayScale();
 
-		FFT2D(m, imgMod->GetWidth(), imgMod->GetHeight(), -1);
+//		FFT2D(m, imgMod->GetWidth(), imgMod->GetHeight(), -1);
 
-		for (int y = 0; y < imgMod->GetHeight(); y++) {
+		/*for (int y = 0; y < imgMod->GetHeight(); y++) {
 			for (int x = 0; x < imgMod->GetWidth(); x++) {
 				double value = sqrt(pow(m[x][y].real, 2) + pow(m[x][y].imag, 2));
 
@@ -154,120 +137,67 @@ void applyIFFT() {
 
 				imgMod->SetGrayValue(x, y, value);
 			}
-		}
+		}*/
 	}
 }
 
-void shiftFFT() {
-	pixel **m;
+void applySaltAndPepper() {
+	if (img) {
+		pixel **mat;
+		double num;
 
-	imgMod->AllocatePixelMatrix(&m, imgMod->GetWidth(), imgMod->GetHeight());
-	imgMod->GetDataAsMatrix(m);
+		imgMod->AllocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
+		imgMod->GetDataAsMatrix(mat);
 
-	if (imgMod->GetNumberOfChannels() == 1) {
-		for (int y = 0; y < img->GetHeight(); y++) {
-			for (int x = 0; x < img->GetWidth(); x++) {
-				m[y][x].value *= pow(-1, x + y);
+		for (int y = 0; y < imgMod->GetHeight(); y++) {
+			for (int x = 0; x < imgMod->GetWidth(); x++) {
+				num = (double) std::rand() / RAND_MAX;
+
+				if (num < noiseProb) {
+					num = (double) std::rand() / RAND_MAX;
+
+					mat[y][x].value = num < 0.5? 0 : 255;
+				}
 			}
 		}
-	} else {
-		for (int y = 0; y < img->GetHeight(); y++) {
-			for (int x = 0; x < img->GetWidth(); x++) {
-				m[y][x].R *= pow(-1, x + y);
-				m[y][x].G *= pow(-1, x + y);
-				m[y][x].B *= pow(-1, x + y);
-			}
-		}
+
+		imgMod->SetDataAsMatrix(mat);
+		imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
 	}
-
- 	imgMod->SetDataAsMatrix(m);
-	imgMod->DeallocatePixelMatrix(&m, imgMod->GetHeight(), imgMod->GetWidth());
-
-	updateMatrix();
 }
 
-void applyLowPass(int radio) {
-	pixel **mat;
+void applyMedianFilter() {
+	if (img) {
+		pixel **mat;
+		int nbh[9] = {0};
+		int i, j;
 
-	imgMod->AllocatePixelMatrix(&mat, imgMod->GetWidth(), imgMod->GetHeight());
-	imgMod->GetDataAsMatrix(mat);
+		imgMod->AllocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
+		imgMod->GetDataAsMatrix(mat);
 
-	int centerx = imgMod->GetWidth() / 2;
-	int centery = imgMod->GetHeight() / 2;
+		for (int y = 0; y < imgMod->GetHeight(); y++) {
+			for (int x = 0; x < imgMod->GetWidth(); x++) {
 
-	if (imgMod->GetNumberOfChannels() == 1) {
-		for (int y = 0; y < img->GetHeight(); y++) {
-			for (int x = 0; x < img->GetWidth(); x++) {
-				if (!isWithin(radio, x - centerx, y - centery)) {
-					mat[y][x].value = 0;
-					m[x][y].real = 0;
-					m[x][y].imag = 0;
+				for (int dy = 0; dy < 3; dy++) {
+					for (int dx = 0; dx < 3; dx++) {
+						i = x + dx - 1;
+						j = y + dy - 1;
+
+						if (i >= 0 && i < imgMod->GetWidth() &&
+							j >= 0 && j < imgMod->GetHeight()) {
+							nbh[dx + dy * 3] = mat[y + dy - 1][x + dx - 1].value;
+						}
+					}
 				}
-				/*double c = isWithin(radio, x - centerx, y - centery);
 
-				mat[y][x].value *= c > 1? 1 : c;
-				m[x][y].real *= c > 1? 1 : c;
-				m[x][y].imag *= c > 1? 1 : c;*/
+				std::sort(nbh, nbh + 9);
+				mat[y][x].value = nbh[4];
 			}
 		}
-	} else {
-		for (int y = 0; y < img->GetHeight(); y++) {
-			for (int x = 0; x < img->GetWidth(); x++) {
-				if (!isWithin(radio, x - centerx, y - centery)) {
-					mat[y][x].R = 0;
-					mat[y][x].G = 0;
-					mat[y][x].B = 0;
-					m[x][y].real = 0;
-					m[x][y].imag = 0;
-				}
-			}
-		}
+
+		imgMod->SetDataAsMatrix(mat);
+		imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
 	}
-
-	imgMod->SetDataAsMatrix(mat);
-	imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
-}
-
-void applyHighPass(int radio) {
-	pixel **mat;
-
-	imgMod->AllocatePixelMatrix(&mat, imgMod->GetWidth(), imgMod->GetHeight());
-	imgMod->GetDataAsMatrix(mat);
-
-	int centerx = imgMod->GetWidth() / 2;
-	int centery = imgMod->GetHeight() / 2;
-
-	if (imgMod->GetNumberOfChannels() == 1) {
-		for (int y = 0; y < img->GetHeight(); y++) {
-			for (int x = 0; x < img->GetWidth(); x++) {
-				if (isWithin(radio, x - centerx, y - centery)) {
-					mat[y][x].value = 0;
-					m[x][y].real = 0;
-					m[x][y].imag = 0;
-				}
-				/*double c = isWithin(radio, x - centerx, y - centery);
-
-				mat[y][x].value *= c > 1? 1 : c;
-				m[x][y].real *= c > 1? 1 : c;
-				m[x][y].imag *= c > 1? 1 : c;*/
-			}
-		}
-	} else {
-		for (int y = 0; y < img->GetHeight(); y++) {
-			for (int x = 0; x < img->GetWidth(); x++) {
-				if (isWithin(radio, x - centerx, y - centery)) {
-					mat[y][x].R = 0;
-					mat[y][x].G = 0;
-					mat[y][x].B = 0;
-					m[x][y].real = 0;
-					m[x][y].imag = 0;
-				}
-			}
-		}
-	}
-
-	imgMod->SetDataAsMatrix(mat);
-	imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
 }
 
 void control(int value) {
@@ -275,41 +205,40 @@ void control(int value) {
 	case 1:
 		img->Read(input);
 		imgMod->Copy(img);
-		updateMatrix();
 		glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
 
-		updateUI(false);
+//		updateUI(false);
 		isTransformed = false;
 		break;
 	case 2:
 		imgMod->Save(output);
 		break;
 	case 3:
+		applySaltAndPepper();
 		if (!isTransformed) {
-			shiftFFT();
-			applyFFT();
+//			shiftFFT();
+//			applyFFT();
 
-			updateUI(true);
+//			updateUI(true);
 		} else {
-			applyIFFT();
-			if (!isFiltered) shiftFFT();
+//			applyIFFT();
+//			if (!isFiltered) shiftFFT();
 
-			updateUI(false);
+//			updateUI(false);
 		}
 		break;
 	case 4:
 		imgMod->Copy(img);
-		updateMatrix();
 
-		updateUI(false);
+//		updateUI(false);
 		isTransformed = false;
 		break;
 	case 6:
 		if (option2 == 0) {
-			applyLowPass(filterRadio);
+			applyMedianFilter();
 			isFiltered = true;
 		} else if (option2 == 1) {
-			applyHighPass(filterRadio);
+//			applyHighPass(filterRadio);
 			isFiltered = true;
 		}
 		break;
@@ -330,6 +259,7 @@ static void key(unsigned char key, int x, int y) {
 }
 
 int main(int argc, char *argv[]) {
+	std::srand(std::time(NULL));
 	glutInit(&argc, argv);
 	strcpy(input, "figs/lenaGray.png");
 	strcpy(output, "figs/output.png");
@@ -338,14 +268,11 @@ int main(int argc, char *argv[]) {
 	imgMod = new PixelLab();
 	imgMod->Copy(img);
 
-	initMatrix();
-	updateMatrix();
-
 	glutInitWindowSize(img->GetWidth(), img->GetHeight());
 	glutInitWindowPosition(100, 100);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
 
-	main_window = glutCreateWindow("Image Filtering in the Frequency Domain");
+	main_window = glutCreateWindow("Image Restoration");
 
 	glutKeyboardFunc(key);
 	glutIdleFunc(idle);
@@ -354,7 +281,7 @@ int main(int argc, char *argv[]) {
 
 	// GLUI
 	// Use the first line above to get the interface in the same window as the graphics
-	// Use the second line (comment the first) to get the interface in a separeted window
+	// Use the second line (comment the first) to get the interface in a separated window
 	//GLUI *glui = GLUI_Master.create_glui_subwindow(main_window,
 	//GLUI_SUBWINDOW_RIGHT);
 	GLUI *glui = GLUI_Master.create_glui( "" );
@@ -377,18 +304,22 @@ int main(int argc, char *argv[]) {
 	b1->set_w(50);
 	b2->set_w(50);
 
-	GLUI_Panel *channel_panel = glui->add_panel((char *) " Fourier Transform");
+	GLUI_Panel *channel_panel = glui->add_panel((char *) "Noise");
 
-	transformButton = glui->add_button_to_panel(channel_panel, (char *) "Apply FFT", 3, control);
+	transformButton =
+			glui->add_button_to_panel(channel_panel, (char *) "Add Salt & Pepper", 3, control);
+	noiseSpinner = glui->add_spinner_to_panel( channel_panel, (char*)"Probability", GLUI_SPINNER_FLOAT, &noiseProb, 8, control);
+	noiseSpinner->set_float_limits(0.0, 1.0);
+	noiseSpinner->set_speed(0.1);
 
 	GLUI_Panel *filter_panel = glui->add_panel((char *) "Filter");
 	radio2 = glui->add_radiogroup_to_panel(filter_panel, &option2, 5, (GLUI_Update_CB) NULL);
-	glui->add_radiobutton_to_group(radio2, (char *) "Low-pass                             ");
+	glui->add_radiobutton_to_group(radio2, (char *) "Median                              ");
 	glui->add_radiobutton_to_group(radio2, (char *) "High-pass");
-	radio2->disable();
+//	radio2->disable();
 
 	spinner = glui->add_spinner_to_panel( filter_panel, (char*)"Radio", GLUI_SPINNER_INT, &filterRadio, 7, control);
-	spinner->disable();
+//	spinner->disable();
 
 	glui->add_button((char *) "Apply", 6, control);
 
@@ -401,8 +332,6 @@ int main(int argc, char *argv[]) {
 	glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
 
 	glutMainLoop();
-
-	free(m);
 
 	return 1;
 }
