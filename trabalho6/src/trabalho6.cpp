@@ -8,6 +8,7 @@
 #include <algorithm>
 #include "GL/glui.h"
 #include "GL/glut.h"
+#include "fft2d.c"
 
 // Image Objects
 PixelLab *img = NULL;
@@ -28,6 +29,8 @@ int prevBrightness = 0;
 
 char input[512];
 char output[512];
+
+COMPLEX **m;
 
 bool isTransformed = false;
 bool isFiltered = false;
@@ -62,22 +65,39 @@ double isWithin(int radio, int x, int y) {
 	// return 1 / pow(sqrt(pow(x, 2) + pow(y, 2)) / radio, 2 * 2);
 }
 
-/*void updateUI(bool newIsTransformed) {
+void initMatrix() {
+	m = (COMPLEX**) malloc(sizeof(COMPLEX*) * imgMod->GetWidth());
+
+	for (int i = 0; i < imgMod->GetWidth(); i++) {
+		m[i] = (COMPLEX*) malloc(sizeof(COMPLEX) * imgMod->GetHeight());
+	}
+}
+
+void updateMatrix() {
+	for (int y = 0; y < imgMod->GetHeight(); y++) {
+		for (int x = 0; x < imgMod->GetWidth(); x++) {
+			m[x][y].real = imgMod->GetGrayValue(x, y);
+			m[x][y].imag = 0;
+		}
+	}
+}
+
+void updateUI(bool newIsTransformed) {
 	if (newIsTransformed) {
-		transformButton->set_name("Apply IFFT");
-		radio2->enable();
+		transformButton->disable();
+		noiseSpinner->disable();
 		spinner->enable();
 
 		isTransformed = true;
 	} else {
-		transformButton->set_name("Apply FFT");
-		radio2->disable();
+		transformButton->enable();
+		noiseSpinner->enable();
 		spinner->disable();
 
 		isTransformed = false;
 		isFiltered = false;
 	}
-}*/
+}
 
 void computeUIWidth() {
 	int aux, vw;
@@ -104,9 +124,9 @@ void applyFFT() {
 	if (img) {
 		if (imgMod->GetNumberOfChannels() == 3) imgMod->ConvertToGrayScale();
 
-//		FFT2D(m, imgMod->GetWidth(), imgMod->GetHeight(), 1);
+		FFT2D(m, imgMod->GetWidth(), imgMod->GetHeight(), 1);
 
-/*		for (int y = 0; y < imgMod->GetHeight(); y++) {
+		for (int y = 0; y < imgMod->GetHeight(); y++) {
 			for (int x = 0; x < imgMod->GetWidth(); x++) {
 				double value = sqrt(pow(m[x][y].real, 2) + pow(m[x][y].imag, 2)) * 200;
 
@@ -118,7 +138,7 @@ void applyFFT() {
 
 				imgMod->SetGrayValue(x, y, value);
 			}
-		}*/
+		}
 	}
 }
 
@@ -126,9 +146,9 @@ void applyIFFT() {
 	if (img) {
 		if (imgMod->GetNumberOfChannels() == 3) imgMod->ConvertToGrayScale();
 
-//		FFT2D(m, imgMod->GetWidth(), imgMod->GetHeight(), -1);
+		FFT2D(m, imgMod->GetWidth(), imgMod->GetHeight(), -1);
 
-		/*for (int y = 0; y < imgMod->GetHeight(); y++) {
+		for (int y = 0; y < imgMod->GetHeight(); y++) {
 			for (int x = 0; x < imgMod->GetWidth(); x++) {
 				double value = sqrt(pow(m[x][y].real, 2) + pow(m[x][y].imag, 2));
 
@@ -137,8 +157,36 @@ void applyIFFT() {
 
 				imgMod->SetGrayValue(x, y, value);
 			}
-		}*/
+		}
 	}
+}
+
+void shiftFFT() {
+	pixel **m;
+
+	imgMod->AllocatePixelMatrix(&m, imgMod->GetWidth(), imgMod->GetHeight());
+	imgMod->GetDataAsMatrix(m);
+
+	if (imgMod->GetNumberOfChannels() == 1) {
+		for (int y = 0; y < img->GetHeight(); y++) {
+			for (int x = 0; x < img->GetWidth(); x++) {
+				m[y][x].value *= pow(-1, x + y);
+			}
+		}
+	} else {
+		for (int y = 0; y < img->GetHeight(); y++) {
+			for (int x = 0; x < img->GetWidth(); x++) {
+				m[y][x].R *= pow(-1, x + y);
+				m[y][x].G *= pow(-1, x + y);
+				m[y][x].B *= pow(-1, x + y);
+			}
+		}
+	}
+
+ 	imgMod->SetDataAsMatrix(m);
+	imgMod->DeallocatePixelMatrix(&m, imgMod->GetHeight(), imgMod->GetWidth());
+
+	updateMatrix();
 }
 
 void applySaltAndPepper() {
@@ -207,7 +255,7 @@ void control(int value) {
 		imgMod->Copy(img);
 		glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
 
-//		updateUI(false);
+		updateUI(false);
 		isTransformed = false;
 		break;
 	case 2:
@@ -215,29 +263,36 @@ void control(int value) {
 		break;
 	case 3:
 		applySaltAndPepper();
-		if (!isTransformed) {
-//			shiftFFT();
-//			applyFFT();
-
-//			updateUI(true);
-		} else {
-//			applyIFFT();
-//			if (!isFiltered) shiftFFT();
-
-//			updateUI(false);
-		}
 		break;
 	case 4:
 		imgMod->Copy(img);
 
-//		updateUI(false);
+		updateUI(false);
+		radio2->set_int_val(0);
+
 		isTransformed = false;
 		break;
+	case 5:
+		if (option2 == 2) {
+			if (!isTransformed) {
+				shiftFFT();
+				applyFFT();
+
+				updateUI(true);
+			}
+		} else {
+			if (isTransformed) {
+				applyIFFT();
+				if (!isFiltered) shiftFFT();
+
+				updateUI(false);
+			}
+		}
+		break;
 	case 6:
-		if (option2 == 0) {
+		if (option2 == 1) {
 			applyMedianFilter();
-			isFiltered = true;
-		} else if (option2 == 1) {
+		} else if (option2 == 2) {
 //			applyHighPass(filterRadio);
 			isFiltered = true;
 		}
@@ -267,6 +322,12 @@ int main(int argc, char *argv[]) {
 	img = new PixelLab(input);
 	imgMod = new PixelLab();
 	imgMod->Copy(img);
+
+	initMatrix();
+	updateMatrix();
+
+	isTransformed = false;
+	isFiltered = false;
 
 	glutInitWindowSize(img->GetWidth(), img->GetHeight());
 	glutInitWindowPosition(100, 100);
@@ -312,14 +373,14 @@ int main(int argc, char *argv[]) {
 	noiseSpinner->set_float_limits(0.0, 1.0);
 	noiseSpinner->set_speed(0.1);
 
-	GLUI_Panel *filter_panel = glui->add_panel((char *) "Filter");
-	radio2 = glui->add_radiogroup_to_panel(filter_panel, &option2, 5, (GLUI_Update_CB) NULL);
-	glui->add_radiobutton_to_group(radio2, (char *) "Median                              ");
-	glui->add_radiobutton_to_group(radio2, (char *) "High-pass");
-//	radio2->disable();
+	GLUI_Panel *filter_panel = glui->add_panel((char *) "Noise Removal Strategy");
+	radio2 = glui->add_radiogroup_to_panel(filter_panel, &option2, 5, control);
+	glui->add_radiobutton_to_group(radio2, (char *) "None");
+	glui->add_radiobutton_to_group(radio2, (char *) "Median Filter");
+	glui->add_radiobutton_to_group(radio2, (char *) "Frequency Domain");
 
 	spinner = glui->add_spinner_to_panel( filter_panel, (char*)"Radio", GLUI_SPINNER_INT, &filterRadio, 7, control);
-//	spinner->disable();
+	spinner->disable();
 
 	glui->add_button((char *) "Apply", 6, control);
 
