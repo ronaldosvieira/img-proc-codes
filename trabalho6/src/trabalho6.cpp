@@ -10,6 +10,8 @@
 #include "GL/glut.h"
 #include "fft2d.c"
 
+#define FOURIER_OFFSET 55;
+
 // Image Objects
 PixelLab *img = NULL;
 PixelLab *imgMod = NULL;
@@ -23,8 +25,8 @@ int main_window;
 int UI_width = 0;
 int option = 0;
 int option2 = 0;
-int filterRadio = 0;
-float noiseProb = 0;
+int filterRadio = 15;
+float noiseProb = 0.05;
 int prevBrightness = 0;
 
 char input[512];
@@ -57,12 +59,21 @@ pixel** slice(pixel **m, int sx, int sy, int width, int height) {
 	return s;
 }
 
-double isWithin(int radio, int x, int y) {
+bool isWithin(int radio, int x, int y) {
 	// ideal
 	return sqrt(pow(x, 2) + pow(y, 2)) <= radio;
 
 	// butterworth
 	// return 1 / pow(sqrt(pow(x, 2) + pow(y, 2)) / radio, 2 * 2);
+}
+
+bool isWithin(int radio, int x, int y, int centerx, int centery) {
+	return sqrt(pow(x - centerx, 2) + pow(y - centery, 2)) <= radio;
+}
+
+bool isWithinBounds(int x, int y) {
+	return x >= 0 && x < imgMod->GetWidth() &&
+			y >= 0 && y < imgMod->GetHeight();
 }
 
 void initMatrix() {
@@ -130,8 +141,8 @@ void applyFFT() {
 			for (int x = 0; x < imgMod->GetWidth(); x++) {
 				double value = sqrt(pow(m[x][y].real, 2) + pow(m[x][y].imag, 2)) * 200;
 
-				// adiciona um valor arbitr�rio
-				if (value > 0) value += 55;
+				// adiciona um valor arbitrário
+				if (value > 0) value += FOURIER_OFFSET;
 
 				if (value > 255) value = 255;
 				if (value < 0) value = 0;
@@ -248,6 +259,29 @@ void applyMedianFilter() {
 	}
 }
 
+void applyNotchFilter(int radio, int centerx, int centery) {
+	pixel **mat;
+
+	imgMod->AllocatePixelMatrix(&mat, imgMod->GetWidth(), imgMod->GetHeight());
+	imgMod->GetDataAsMatrix(mat);
+
+	for (int j = centery - radio; j < centery + radio; j++) {
+		for (int i = centerx - radio; i < centerx + radio; i++) {
+			if (isWithin(radio, i, j, centerx, centery)
+					&& isWithinBounds(i, j)) {
+				mat[j][i].value = FOURIER_OFFSET;
+				m[i][j].real = 0;
+				m[i][j].imag = 0;
+			}
+		}
+	}
+
+	imgMod->SetDataAsMatrix(mat);
+	imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
+
+	isFiltered = true;
+}
+
 void control(int value) {
 	switch (value) {
 	case 1:
@@ -283,7 +317,7 @@ void control(int value) {
 		} else {
 			if (isTransformed) {
 				applyIFFT();
-				if (!isFiltered) shiftFFT();
+				shiftFFT();
 
 				updateUI(false);
 			}
@@ -293,8 +327,8 @@ void control(int value) {
 		if (option2 == 1) {
 			applyMedianFilter();
 		} else if (option2 == 2) {
-//			applyHighPass(filterRadio);
-			isFiltered = true;
+			radio2->set_int_val(0);
+			control(5);
 		}
 		break;
 	case 7:
@@ -311,6 +345,19 @@ static void key(unsigned char key, int x, int y) {
 		break;
 	}
 	glutPostRedisplay();
+}
+
+static void mouse(int button, int state, int x, int y) {
+	if (option2 == 2) {
+		if (button == GLUT_LEFT_BUTTON) {
+			if (state == GLUT_DOWN) {
+				applyNotchFilter(
+						filterRadio,
+						x,
+						imgMod->GetHeight() - y);
+			}
+		}
+	}
 }
 
 int main(int argc, char *argv[]) {
@@ -336,6 +383,7 @@ int main(int argc, char *argv[]) {
 	main_window = glutCreateWindow("Image Restoration");
 
 	glutKeyboardFunc(key);
+	glutMouseFunc(mouse);
 	glutIdleFunc(idle);
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
@@ -345,7 +393,7 @@ int main(int argc, char *argv[]) {
 	// Use the second line (comment the first) to get the interface in a separated window
 	//GLUI *glui = GLUI_Master.create_glui_subwindow(main_window,
 	//GLUI_SUBWINDOW_RIGHT);
-	GLUI *glui = GLUI_Master.create_glui( "" );
+	GLUI *glui = GLUI_Master.create_glui("Control");
 
 	GLUI_Master.set_glutReshapeFunc(reshape);
 
@@ -377,7 +425,7 @@ int main(int argc, char *argv[]) {
 	radio2 = glui->add_radiogroup_to_panel(filter_panel, &option2, 5, control);
 	glui->add_radiobutton_to_group(radio2, (char *) "None");
 	glui->add_radiobutton_to_group(radio2, (char *) "Median Filter");
-	glui->add_radiobutton_to_group(radio2, (char *) "Frequency Domain");
+	glui->add_radiobutton_to_group(radio2, (char *) "Notch Filter");
 
 	spinner = glui->add_spinner_to_panel( filter_panel, (char*)"Radio", GLUI_SPINNER_INT, &filterRadio, 7, control);
 	spinner->disable();
