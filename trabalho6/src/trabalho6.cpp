@@ -35,7 +35,6 @@ char output[512];
 COMPLEX **m;
 
 bool isTransformed = false;
-bool isFiltered = false;
 
 void idle() {
 	if (glutGetWindow() != main_window)
@@ -106,7 +105,6 @@ void updateUI(bool newIsTransformed) {
 		spinner->disable();
 
 		isTransformed = false;
-		isFiltered = false;
 	}
 }
 
@@ -175,7 +173,7 @@ void applyIFFT() {
 void shiftFFT() {
 	pixel **m;
 
-	imgMod->AllocatePixelMatrix(&m, imgMod->GetWidth(), imgMod->GetHeight());
+	imgMod->AllocatePixelMatrix(&m, imgMod->GetHeight(), imgMod->GetWidth());
 	imgMod->GetDataAsMatrix(m);
 
 	if (imgMod->GetNumberOfChannels() == 1) {
@@ -278,8 +276,6 @@ void applyNotchFilter(int radio, int centerx, int centery) {
 
 	imgMod->SetDataAsMatrix(mat);
 	imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
-
-	isFiltered = true;
 }
 
 void control(int value) {
@@ -374,7 +370,6 @@ int main(int argc, char *argv[]) {
 	updateMatrix();
 
 	isTransformed = false;
-	isFiltered = false;
 
 	glutInitWindowSize(img->GetWidth(), img->GetHeight());
 	glutInitWindowPosition(100, 100);
