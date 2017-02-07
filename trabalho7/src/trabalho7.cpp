@@ -35,6 +35,14 @@ char output[512];
 bool isTransformed = false;
 
 void idle() {
+	if (glutGetWindow() != orig_window)
+		glutSetWindow(orig_window);
+	glutPostRedisplay();
+}
+
+void idle2() {
+	if (glutGetWindow() != edited_window)
+		glutSetWindow(edited_window);
 	glutPostRedisplay();
 }
 
@@ -65,6 +73,12 @@ void reshape(int x, int y) {
 	glutPostRedisplay();
 }
 
+void refresh(int window) {
+	if (glutGetWindow() != window)
+		glutSetWindow(window);
+	glutPostRedisplay();
+}
+
 static void display(void) {
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -87,8 +101,35 @@ static void display2(void) {
 	glutSwapBuffers();
 }
 
-void applyThreshold() {
-	// todo
+void applyThreshold(int threshold) {
+	pixel **mat;
+	int channels = img->GetNumberOfChannels();
+
+	img->AllocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
+	img->GetDataAsMatrix(mat);
+
+	for (int y = 0; y < imgMod->GetHeight(); y++) {
+		for (int x = 0; x < imgMod->GetWidth(); x++) {
+			int value =
+				mat[y][x].value >= threshold?
+					255 : 0;
+
+			cout << value << endl;
+
+			if (channels == 1) {
+				mat[y][x].value = value;
+			} else {
+				mat[y][x].R = value;
+				mat[y][x].G = value;
+				mat[y][x].B = value;
+			}
+		}
+	}
+
+	imgMod->SetDataAsMatrix(mat);
+	imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
+
+	refresh(edited_window);
 }
 
 void applyAutoThreshold() {
@@ -96,7 +137,7 @@ void applyAutoThreshold() {
 }
 
 void applyManualThreshold() {
-	// todo
+	applyThreshold(spinner->get_int_val());
 }
 
 void control(int value) {
@@ -133,13 +174,17 @@ void control(int value) {
 			break;
 		case 5:
 			// apply
-			applyAutoThreshold();
+			if (option == 0) {
+				applyAutoThreshold();
+			} else if (option == 1) {
+				applyManualThreshold();
+			}
 
 			break;
 		case 6:
 			// reset
 			imgMod->Copy(img);
-			spinner->set_int_val(128);
+			refresh(edited_window);
 
 			break;
 	}
@@ -171,7 +216,7 @@ static void mouse(int button, int state, int x, int y) {
 
 int main(int argc, char *argv[]) {
 	glutInit(&argc, argv);
-	strcpy(input, "figs/lena.png");
+	strcpy(input, "figs/lenaGray.png");
 	strcpy(output, "figs/output.png");
 
 	img = new PixelLab(input);
@@ -198,7 +243,7 @@ int main(int argc, char *argv[]) {
 	glutSetWindow(edited_window);
 	glutKeyboardFunc(key);
 	glutMouseFunc(mouse);
-	glutIdleFunc(idle);
+	glutIdleFunc(idle2);
 	glutDisplayFunc(display2);
 	glutReshapeFunc(reshape);
 	glutPositionWindow(40 + img->GetWidth(), 20);
