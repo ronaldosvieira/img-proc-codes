@@ -70,6 +70,24 @@ void refresh(int window) {
 	glutPostRedisplay();
 }
 
+void loadImage() {
+	img->Read(input);
+
+	if (img->GetNumberOfChannels() == 3) {
+		img->ConvertToGrayScale();
+		img->SetNumberOfChannels(1);
+	}
+
+	imgMod->Copy(img);
+
+	glutSetWindow(orig_window);
+	glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
+
+	glutSetWindow(edited_window);
+	glutReshapeWindow(imgMod->GetWidth(), imgMod->GetHeight());
+	refresh(edited_window);
+}
+
 static void display(void) {
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -171,26 +189,13 @@ void control(int value) {
 	switch (value) {
 		case 1:
 			// load
-			img->Read(input);
+			loadImage();
 
-			if (img->GetNumberOfChannels() == 3) {
-				cout << "convertendo" << endl;
-				img->ConvertToGrayScale();
-				img->SetNumberOfChannels(1);
-			}
-
-			imgMod->Copy(img);
-
-			glutSetWindow(orig_window);
-			glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
-
-			glutSetWindow(edited_window);
-			glutReshapeWindow(imgMod->GetWidth(), imgMod->GetHeight());
-			refresh(edited_window);
 			break;
 		case 2:
 			// save
 			imgMod->Save(output);
+
 			break;
 		case 3:
 			// radio
@@ -259,13 +264,6 @@ int main(int argc, char *argv[]) {
 	strcpy(output, "figs/output.png");
 
 	img = new PixelLab(input);
-
-	if (img->GetNumberOfChannels() == 3) {
-		cout << "convertendo" << endl;
-		img->ConvertToGrayScale();
-		img->SetNumberOfChannels(1);
-	}
-
 	imgMod = new PixelLab();
 	imgMod->Copy(img);
 
