@@ -9,20 +9,23 @@
 #include "GL/glui.h"
 #include "GL/glut.h"
 
+using std::cout;
+using std::endl;
+
 // Image Objects
 PixelLab *img = NULL;
 PixelLab *imgMod = NULL;
 
 GLUI_RadioGroup *radio, *radio2;
 GLUI_RadioButton *buttons[3];
-GLUI_Button *transformButton;
+GLUI_Button *autoThresholdButton, *manualThresholdButton;
 GLUI_Spinner *noiseSpinner, *spinner;
 
-int main_window;
+int orig_window, edited_window;
 int UI_width = 0;
 int option = 0;
 int option2 = 0;
-int filterRadio = 15;
+int filterRadio = 128;
 float noiseProb = 0.05;
 int prevBrightness = 0;
 
@@ -32,8 +35,6 @@ char output[512];
 bool isTransformed = false;
 
 void idle() {
-	if (glutGetWindow() != main_window)
-		glutSetWindow(main_window);
 	glutPostRedisplay();
 }
 
@@ -54,22 +55,6 @@ bool isWithinBounds(int x, int y) {
 			y >= 0 && y < imgMod->GetHeight();
 }
 
-void updateUI(bool newIsTransformed) {
-	if (newIsTransformed) {
-		transformButton->disable();
-		noiseSpinner->disable();
-		spinner->enable();
-
-		isTransformed = true;
-	} else {
-		transformButton->enable();
-		noiseSpinner->enable();
-		spinner->disable();
-
-		isTransformed = false;
-	}
-}
-
 void computeUIWidth() {
 	int aux, vw;
 	GLUI_Master.get_viewport_area(&aux, &aux, &vw, &aux);
@@ -85,62 +70,77 @@ static void display(void) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glRasterPos2i(-1, -1); // Fix raster position
+	img->ViewImage();
+	GLUI_Master.auto_set_viewport();
+
+	glutSwapBuffers();
+}
+
+static void display2(void) {
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glRasterPos2i(-1, -1); // Fix raster position
 	imgMod->ViewImage();
 	GLUI_Master.auto_set_viewport();
 
 	glutSwapBuffers();
 }
 
+void applyThreshold() {
+	// todo
+}
+
+void applyAutoThreshold() {
+	// todo
+}
+
+void applyManualThreshold() {
+	// todo
+}
+
 void control(int value) {
 	switch (value) {
 		case 1:
+			// load
 			img->Read(input);
 			imgMod->Copy(img);
 			glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
 
-			updateUI(false);
 			break;
 		case 2:
+			// save
 			imgMod->Save(output);
 			break;
 		case 3:
-			//applySaltAndPepper();
+			// radio
+			if (option == 0) {
+				// manual
+				spinner->disable();
+			} else if (option == 1) {
+				// auto
+				spinner->enable();
+			}
 			break;
 		case 4:
-			/*imgMod->Copy(img);
+			// spinner
+			if (spinner->get_int_val() < 0)
+				spinner->set_int_val(0);
 
-			updateUI(false);
-			radio2->set_int_val(0);*/
+			if (spinner->get_int_val() > 255)
+				spinner->set_int_val(255);
 
 			break;
 		case 5:
-			/*if (option2 == 2) {
-				if (!isTransformed) {
-					//shiftFFT();
-					//applyFFT();
+			// apply
+			applyAutoThreshold();
 
-					updateUI(true);
-				}
-			} else {
-				if (isTransformed) {
-					//applyIFFT();
-					//shiftFFT();
-
-					updateUI(false);
-				}
-			}*/
 			break;
 		case 6:
-			/*if (option2 == 1) {
-				//applyMedianFilter();
-			} else if (option2 == 2) {
-				radio2->set_int_val(0);
-				control(5);
-			}*/
+			// reset
+			imgMod->Copy(img);
+			spinner->set_int_val(128);
 
-			break;
-		case 7:
-			//if (spinner->get_int_val() < 0) spinner->set_int_val(0);
 			break;
 	}
 
@@ -170,7 +170,6 @@ static void mouse(int button, int state, int x, int y) {
 }
 
 int main(int argc, char *argv[]) {
-	std::srand(std::time(NULL));
 	glutInit(&argc, argv);
 	strcpy(input, "figs/lena.png");
 	strcpy(output, "figs/output.png");
@@ -183,13 +182,26 @@ int main(int argc, char *argv[]) {
 	glutInitWindowPosition(100, 100);
 	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
 
-	main_window = glutCreateWindow("Image Segmentation");
+	orig_window = glutCreateWindow("Original Image");
+	edited_window = glutCreateWindow("Edited Image");
 
+	// original image window
+	glutSetWindow(orig_window);
 	glutKeyboardFunc(key);
 	glutMouseFunc(mouse);
 	glutIdleFunc(idle);
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
+	glutPositionWindow(20, 20);
+
+	// edited image window
+	glutSetWindow(edited_window);
+	glutKeyboardFunc(key);
+	glutMouseFunc(mouse);
+	glutIdleFunc(idle);
+	glutDisplayFunc(display2);
+	glutReshapeFunc(reshape);
+	glutPositionWindow(40 + img->GetWidth(), 20);
 
 	// GLUI
 	// Use the first line above to get the interface in the same window as the graphics
@@ -216,29 +228,22 @@ int main(int argc, char *argv[]) {
 	b1->set_w(50);
 	b2->set_w(50);
 
-	GLUI_Panel *channel_panel = glui->add_panel((char *) "Noise");
+	GLUI_Panel *filter_panel = glui->add_panel((char *) "Manual Threshold");
 
-	transformButton =
-			glui->add_button_to_panel(channel_panel, (char *) "Add Salt & Pepper", 3, control);
-	noiseSpinner = glui->add_spinner_to_panel( channel_panel, (char*)"Probability", GLUI_SPINNER_FLOAT, &noiseProb, 8, control);
-	noiseSpinner->set_float_limits(0.0, 1.0);
-	noiseSpinner->set_speed(0.1);
+	radio2 = glui->add_radiogroup_to_panel(filter_panel, &option, 3, control);
+	glui->add_radiobutton_to_group(radio2, (char *) "Automatic");
+	glui->add_radiobutton_to_group(radio2, (char *) "Manual");
 
-	GLUI_Panel *filter_panel = glui->add_panel((char *) "Noise Removal Strategy");
-	radio2 = glui->add_radiogroup_to_panel(filter_panel, &option2, 5, control);
-	glui->add_radiobutton_to_group(radio2, (char *) "None");
-	glui->add_radiobutton_to_group(radio2, (char *) "Median Filter");
-	glui->add_radiobutton_to_group(radio2, (char *) "Notch Filter");
-
-	spinner = glui->add_spinner_to_panel( filter_panel, (char*)"Radio", GLUI_SPINNER_INT, &filterRadio, 7, control);
+	spinner = glui->add_spinner_to_panel( filter_panel, (char*)"Threshold",
+			GLUI_SPINNER_INT, &filterRadio, 4, control);
 	spinner->disable();
 
-	glui->add_button((char *) "Apply", 6, control);
+	glui->add_button((char *) "Apply", 5, control);
 
-	glui->add_button((char *) "Reset", 4, control);
+	glui->add_button((char *) "Reset", 6, control);
 	glui->add_button((char *) "Quit", 0, (GLUI_Update_CB) exit);
 
-	glui->set_main_gfx_window(main_window);
+	glui->set_main_gfx_window(orig_window);
 	GLUI_Master.set_glutIdleFunc(idle);
 	computeUIWidth(); // Compute the size of the user interface
 	glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
