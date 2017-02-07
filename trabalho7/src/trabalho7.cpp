@@ -9,6 +9,9 @@
 #include "GL/glui.h"
 #include "GL/glut.h"
 
+int MAX_ITER = 10;
+int MIN_DIFF = 10;
+
 using std::cout;
 using std::endl;
 
@@ -44,18 +47,6 @@ void idle2() {
 	if (glutGetWindow() != edited_window)
 		glutSetWindow(edited_window);
 	glutPostRedisplay();
-}
-
-bool isWithin(int radio, int x, int y) {
-	// ideal
-	return sqrt(pow(x, 2) + pow(y, 2)) <= radio;
-
-	// butterworth
-	// return 1 / pow(sqrt(pow(x, 2) + pow(y, 2)) / radio, 2 * 2);
-}
-
-bool isWithin(int radio, int x, int y, int centerx, int centery) {
-	return sqrt(pow(x - centerx, 2) + pow(y - centery, 2)) <= radio;
 }
 
 bool isWithinBounds(int x, int y) {
@@ -101,9 +92,35 @@ static void display2(void) {
 	glutSwapBuffers();
 }
 
+int calcMean(int floor, int roof) {
+	int sum = 0;
+	int mean;
+	int histogram[255] = {0};
+
+	pixel **mat;
+
+	img->AllocatePixelMatrix(&mat, img->GetHeight(), img->GetWidth());
+	img->GetDataAsMatrix(mat);
+
+	for (int y = 0; y < img->GetHeight(); y++) {
+		for (int x = 0; x < img->GetWidth(); x++) {
+			int value = mat[y][x].value;
+
+			if (value <= roof && value >= floor)
+				sum += value;
+		}
+	}
+
+	imgMod->SetDataAsMatrix(mat);
+	imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
+
+	mean = sum / (img->GetWidth() * img->GetHeight());
+
+	return mean;
+}
+
 void applyThreshold(int threshold) {
 	pixel **mat;
-	int channels = img->GetNumberOfChannels();
 
 	img->AllocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
 	img->GetDataAsMatrix(mat);
@@ -114,15 +131,7 @@ void applyThreshold(int threshold) {
 				mat[y][x].value >= threshold?
 					255 : 0;
 
-			cout << value << endl;
-
-			if (channels == 1) {
-				mat[y][x].value = value;
-			} else {
-				mat[y][x].R = value;
-				mat[y][x].G = value;
-				mat[y][x].B = value;
-			}
+			mat[y][x].value = value;
 		}
 	}
 
@@ -133,7 +142,25 @@ void applyThreshold(int threshold) {
 }
 
 void applyAutoThreshold() {
-	// todo
+	int diff = 0;
+	int i = 0;
+	int threshold = calcMean(0, 255);
+
+	do {
+		int mean1 = calcMean(0, threshold);
+		int mean2 = calcMean(threshold + 1, 255);
+
+		int new_threshold = (mean2 + mean1) / 2;
+
+		diff = std::abs(threshold - new_threshold);
+
+		threshold = new_threshold;
+
+	} while (diff > MIN_DIFF && i < MAX_ITER);
+
+	spinner->set_int_val(threshold);
+
+	applyThreshold(threshold);
 }
 
 void applyManualThreshold() {
@@ -145,9 +172,21 @@ void control(int value) {
 		case 1:
 			// load
 			img->Read(input);
+
+			if (img->GetNumberOfChannels() == 3) {
+				cout << "convertendo" << endl;
+				img->ConvertToGrayScale();
+				img->SetNumberOfChannels(1);
+			}
+
 			imgMod->Copy(img);
+
+			glutSetWindow(orig_window);
 			glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
 
+			glutSetWindow(edited_window);
+			glutReshapeWindow(imgMod->GetWidth(), imgMod->GetHeight());
+			refresh(edited_window);
 			break;
 		case 2:
 			// save
@@ -216,10 +255,17 @@ static void mouse(int button, int state, int x, int y) {
 
 int main(int argc, char *argv[]) {
 	glutInit(&argc, argv);
-	strcpy(input, "figs/lenaGray.png");
+	strcpy(input, "figs/CT.lungs.png");
 	strcpy(output, "figs/output.png");
 
 	img = new PixelLab(input);
+
+	if (img->GetNumberOfChannels() == 3) {
+		cout << "convertendo" << endl;
+		img->ConvertToGrayScale();
+		img->SetNumberOfChannels(1);
+	}
+
 	imgMod = new PixelLab();
 	imgMod->Copy(img);
 
