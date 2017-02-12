@@ -7,6 +7,7 @@
 #include <tuple>
 #include <utility>
 #include <cmath>
+#include <sstream>
 #include <ctime>
 #include <algorithm>
 #include "GL/glui.h"
@@ -23,11 +24,11 @@ using std::endl;
 PixelLab *img = NULL;
 PixelLab *imgMod = NULL;
 
-GLUI_RadioGroup *radio, *radio2;
+//GLUI_RadioGroup *radio, *radio2;
 //GLUI_RadioGroup *radio;
-GLUI_RadioButton *buttons[3];
-GLUI_Button *autoThresholdButton, *manualThresholdButton;
-GLUI_Spinner *noiseSpinner, *spinner;
+//GLUI_RadioButton *buttons[3];
+//GLUI_Button *autoThresholdButton, *manualThresholdButton;
+//GLUI_Spinner *noiseSpinner, *spinner;
 
 GLUI_Listbox* seed_list = nullptr;
 
@@ -46,7 +47,7 @@ char output[512];
 
 bool isTransformed = false;
 
-int selected_seed = 0;
+int selected_seed = -1;
 
 int lineX = 0;
 int lineY = 0;
@@ -59,10 +60,13 @@ int edit_value_x, edit_value_y;
 int edit_value_r, edit_value_g, edit_value_b;
 int edit_value_min, edit_value_max;
 
-// Seed buttons
+// Seed edit values
 GLUI_Spinner *edit_seed_x, *edit_seed_y;
 GLUI_Spinner *edit_seed_r, *edit_seed_g, *edit_seed_b;
 GLUI_Spinner *edit_seed_min, *edit_seed_max;
+
+// Seed set values button
+GLUI_Button* button_set_values;
 
 class color {
 
@@ -95,8 +99,7 @@ public:
 
 void drawLines(float x, float y);
 
-//std::vector<seed> seedVector { { 0, 0, 0xFF/2, 0xFF, color(0xFF) } };
-std::vector<seed> seedVector { { 0, 0, 0, 0xFF / 2, color(0xFF) } };
+std::vector<seed> seed_vector;
 
 void idle() {
 	if (glutGetWindow() != orig_window)
@@ -185,7 +188,14 @@ typedef enum _mark
 
 void applySegmentation() {
 
-	for (const auto& seed : seedVector) {
+	pixel **mat;
+
+	img->AllocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
+	img->GetDataAsMatrix(mat);
+
+	imgMod->SetDataAsMatrix(mat);
+
+	for (const auto& seed : seed_vector) {
 
 		mark visited[imgMod->GetHeight()][imgMod->GetWidth()] { WHITE };
 
@@ -232,7 +242,8 @@ void applySegmentation() {
 						positions.push_back(
 								std::make_tuple(currentX, currentY));
 
-						imgMod->SetGrayValue(currentX, currentY, 0xFF);
+						imgMod->SetRGB(currentX, currentY, seed.c.r, seed.c.g,
+								seed.c.b);
 
 						visited[currentY][currentX] = GRAY;
 
@@ -248,58 +259,9 @@ void applySegmentation() {
 			}
 		}
 	}
-}
 
-int calcMean(int floor, int roof) {
-	int sum = 0;
-	int mean;
-	int histogram[255] = { 0 };
-
-	pixel **mat;
-
-	img->AllocatePixelMatrix(&mat, img->GetHeight(), img->GetWidth());
-	img->GetDataAsMatrix(mat);
-
-	for (int y = 0; y < img->GetHeight(); y++) {
-		for (int x = 0; x < img->GetWidth(); x++) {
-			int value = mat[y][x].value;
-
-			if (value <= roof && value >= floor)
-				sum += value;
-		}
-	}
-
-	imgMod->SetDataAsMatrix(mat);
 	imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(),
 			imgMod->GetWidth());
-
-	mean = sum / (img->GetWidth() * img->GetHeight());
-
-	return mean;
-}
-
-void applyThreshold(int threshold) {
-	/*
-	 pixel **mat;
-
-	 img->AllocatePixelMatrix(&mat, imgMod->GetHeight(), imgMod->GetWidth());
-	 img->GetDataAsMatrix(mat);
-
-	 for (int y = 0; y < imgMod->GetHeight(); y++) {
-	 for (int x = 0; x < imgMod->GetWidth(); x++) {
-	 int value = mat[y][x].value >= threshold ? 255 : 0;
-
-	 mat[y][x].value = value;
-	 }
-	 }
-
-	 imgMod->SetDataAsMatrix(mat);
-	 imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(),
-	 imgMod->GetWidth());
-
-	 refresh(edited_window);
-	 */
-	applySegmentation();
 
 	refresh(edited_window);
 }
@@ -317,32 +279,6 @@ void drawLines(float x, float y) {
 	glEnd();
 }
 
-void applyAutoThreshold() {
-	int diff = 0;
-	int i = 0;
-	int threshold = calcMean(0, 255);
-
-	do {
-		int mean1 = calcMean(0, threshold);
-		int mean2 = calcMean(threshold + 1, 255);
-
-		int new_threshold = (mean2 + mean1) / 2;
-
-		diff = std::abs(threshold - new_threshold);
-
-		threshold = new_threshold;
-
-	} while (diff > MIN_DIFF && i < MAX_ITER);
-
-	spinner->set_int_val(threshold);
-
-	applyThreshold(threshold);
-}
-
-void applyManualThreshold() {
-	applyThreshold(spinner->get_int_val());
-}
-
 void control(int value) {
 	switch (value) {
 	case 1:
@@ -357,58 +293,115 @@ void control(int value) {
 		break;
 	case 3:
 		// radio
-		if (option == 0) {
-			// manual
-			spinner->disable();
-		} else if (option == 1) {
-			// auto
-			spinner->enable();
-		}
+
 		break;
 	case 4:
 		// spinner
-		if (spinner->get_int_val() < 0)
-			spinner->set_int_val(0);
-
-		if (spinner->get_int_val() > 255)
-			spinner->set_int_val(255);
 
 		break;
 	case 5:
-		// apply
-		if (option == 0) {
-			applyAutoThreshold();
-		} else if (option == 1) {
-			applyManualThreshold();
-		}
+		applySegmentation();
 
 		break;
-	case 6:
+	case 6: {
 		// reset
+		button_set_values->disable();
+
+		edit_seed_x->set_int_val(0);
+		edit_seed_y->set_int_val(0);
+
+		edit_seed_r->set_int_val(0);
+		edit_seed_g->set_int_val(0);
+		edit_seed_b->set_int_val(0);
+
+		edit_seed_min->set_int_val(0);
+		edit_seed_max->set_int_val(0);
+
+		for (int i = 0; i < seed_vector.size(); ++i) {
+			seed_list->delete_item(i);
+		}
+
+		seed_vector.clear();
+
 		imgMod->Copy(img);
 		refresh(edited_window);
 
 		break;
+	}
 
 	case 7: {
 
-		Log("%s selected", seed_list->get_item_ptr(selected_seed)->text.c_str());
-		Log("%d", edit_value_x);
+		// List of seeds
+		if (selected_seed < 0) {
+			button_set_values->disable();
+
+			edit_seed_x->set_int_val(0);
+			edit_seed_y->set_int_val(0);
+
+			edit_seed_r->set_int_val(0);
+			edit_seed_g->set_int_val(0);
+			edit_seed_b->set_int_val(0);
+
+			edit_seed_min->set_int_val(0);
+			edit_seed_max->set_int_val(0);
+		} else {
+			button_set_values->enable();
+
+			const auto& seed = seed_vector.at(selected_seed);
+
+			edit_seed_x->set_int_val(seed.x);
+			edit_seed_y->set_int_val(seed.y);
+
+			edit_seed_r->set_int_val((int) seed.c.r);
+			edit_seed_g->set_int_val((int) seed.c.g);
+			edit_seed_b->set_int_val((int) seed.c.b);
+
+			edit_seed_min->set_int_val((int) seed.min);
+			edit_seed_max->set_int_val((int) seed.max);
+		}
 
 		break;
 	}
 
 	case 8: {
 		// Add seed button
-		pickingPoint = true;
+		seed new_seed { edit_value_x, edit_value_y, (uByte) edit_value_min,
+				(uByte) edit_value_max, { (uByte) edit_value_r,
+						(uByte) edit_value_g, (uByte) edit_value_b } };
+
+		seed_vector.push_back(new_seed);
+
+		std::stringstream ss;
+		ss << "Seed ";
+		ss << seed_vector.size();
+
+		seed_list->add_item(seed_vector.size(), ss.str().c_str());
 
 		break;
 	}
 
 	case 9: {
 		// Set seed values button
+		if (selected_seed >= 0) {
+			auto& seed = seed_vector.at(selected_seed);
+
+			seed.x = edit_value_x;
+			seed.y = edit_value_y;
+
+			seed.c.r = edit_value_r;
+			seed.c.g = edit_value_g;
+			seed.c.b = edit_value_b;
+
+			seed.min = edit_value_min;
+			seed.max = edit_value_max;
+		}
 
 		break;
+	}
+
+	case 10: {
+		// Pick position of seed
+		pickingPoint = true;
 	}
 	}
 
@@ -479,34 +472,19 @@ void initGLUI() {
 	b1->set_w(50);
 	b2->set_w(50);
 
-	GLUI_Panel* filter_panel = glui->add_panel((char*) ("Manual Threshold"));
-	radio2 = glui->add_radiogroup_to_panel(filter_panel, &option, 3, control);
-	glui->add_radiobutton_to_group(radio2, (char*) ("Automatic"));
-	glui->add_radiobutton_to_group(radio2, (char*) ("Manual"));
-	spinner = glui->add_spinner_to_panel(filter_panel, (char*) ("Threshold"),
-	GLUI_SPINNER_INT, &filterRadio, 4, control);
-
 	// Seeds panel
 	GLUI_Panel* seed_panel = glui->add_panel((char*) ("Seeds"));
-
-	// Add seed button
-	GLUI_Button* button_add_seed = glui->add_button_to_panel(seed_panel,
-			(char*) ("Add seed"), 8, control);
 
 	// List of seeds
 	seed_list = glui->add_listbox_to_panel(seed_panel, "Seed: ", &selected_seed,
 			7, control);
 	seed_list->set_w(185);
 
-//	GLUI_Button* set_seed_values_button = glui->add_button_to_panel(seed_panel, (char*) ("Set values to seed"), 8,
-//				control);
-
-	seed_list->add_item(0, "aaa");
-	seed_list->add_item(1, "abc");
+	seed_list->add_item(-1, "(None)");
 
 	// Seed position
 	edit_seed_x = glui->add_spinner_to_panel(seed_panel, (char*) ("X"),
-			GLUI_SPINNER_INT, &edit_value_x);
+	GLUI_SPINNER_INT, &edit_value_x);
 	edit_seed_x->set_w(185);
 	edit_seed_x->set_int_limits(0, img->GetWidth());
 
@@ -514,6 +492,10 @@ void initGLUI() {
 	GLUI_EDITTEXT_INT, &edit_value_y);
 	edit_seed_y->set_w(185);
 	edit_seed_y->set_int_limits(0, img->GetHeight());
+
+	// Seed pick position
+	GLUI_Button* button_picxy_seed = glui->add_button_to_panel(seed_panel,
+			(char*) ("Pick position"), 10, control);
 
 	// Seed color
 	edit_seed_r = glui->add_spinner_to_panel(seed_panel, (char*) ("R"),
@@ -543,10 +525,14 @@ void initGLUI() {
 	edit_seed_max->set_int_limits(0, 255);
 
 	// Save button
-	GLUI_Button* button_set_values = glui->add_button_to_panel(seed_panel,
+	button_set_values = glui->add_button_to_panel(seed_panel,
 			(char*) ("Set values"), 9, control);
+	button_set_values->disable();
 
-	spinner->disable();
+	// Add seed button
+	GLUI_Button* button_add_seed = glui->add_button_to_panel(seed_panel,
+			(char*) ("Add new seed"), 8, control);
+
 	glui->add_button((char*) ("Apply"), 5, control);
 	glui->add_button((char*) ("Reset"), 6, control);
 	glui->add_button((char*) ("Quit"), 0, (GLUI_Update_CB) (exit));
