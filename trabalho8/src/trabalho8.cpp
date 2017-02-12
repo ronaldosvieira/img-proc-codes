@@ -36,10 +36,18 @@ int filterRadio = 128;
 float noiseProb = 0.05;
 int prevBrightness = 0;
 
+bool pickingPoint = false;
+
 char input[512];
 char output[512];
 
 bool isTransformed = false;
+
+int lineX = 0;
+int lineY = 0;
+
+float lineX_norm = 0;
+float lineY_norm = 0;
 
 class color {
 
@@ -70,8 +78,10 @@ public:
 	color c;
 };
 
+void drawLines(float x, float y);
+
 //std::vector<seed> seedVector { { 0, 0, 0xFF/2, 0xFF, color(0xFF) } };
-std::vector<seed> seedVector { { 0, 0, 0, 0xFF/2, color(0xFF) } };
+std::vector<seed> seedVector { { 0, 0, 0, 0xFF / 2, color(0xFF) } };
 
 void idle() {
 	if (glutGetWindow() != orig_window)
@@ -129,6 +139,11 @@ static void display(void) {
 
 	glRasterPos2i(-1, -1); // Fix raster position
 	img->ViewImage();
+
+	if (pickingPoint) {
+		drawLines(lineX_norm, lineY_norm);
+	}
+
 	GLUI_Master.auto_set_viewport();
 
 	glutSwapBuffers();
@@ -271,6 +286,21 @@ void applyThreshold(int threshold) {
 	refresh(edited_window);
 }
 
+
+
+void drawLines(float x, float y) {
+	glColor3f(1.0, 0, 0);
+	glBegin(GL_LINES);
+
+	glVertex2f(-1, lineY_norm);
+	glVertex2f(1, lineY_norm);
+
+	glVertex2f(lineX_norm, -1);
+	glVertex2f(lineX_norm, 1);
+
+	glEnd();
+}
+
 void applyAutoThreshold() {
 	int diff = 0;
 	int i = 0;
@@ -368,7 +398,22 @@ static void mouse(int button, int state, int x, int y) {
 	 }
 	 }
 	 }*/
+
 }
+
+#define NORM_Y(f) (((float) f) /img->GetHeight())
+#define NORM_X(f) (((float) f) /img->GetWidth())
+
+static void mouseMotion(int x, int y) {
+	lineX = x;
+	lineY = img->GetHeight() - y;
+
+	lineY_norm = NORM_Y((img->GetHeight()- y) - img->GetHeight() / 2) * 2;
+	lineX_norm = NORM_X(x - img->GetWidth() / 2) * 2;
+}
+
+#undef NORM_Y
+#undef NORM_X
 
 void initGLUI() {
 	// GLUI
@@ -427,6 +472,7 @@ int main(int argc, char *argv[]) {
 	glutSetWindow(orig_window);
 	glutKeyboardFunc(key);
 	glutMouseFunc(mouse);
+	glutPassiveMotionFunc(mouseMotion);
 	glutIdleFunc(idle);
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
@@ -435,7 +481,7 @@ int main(int argc, char *argv[]) {
 	// edited image window
 	glutSetWindow(edited_window);
 	glutKeyboardFunc(key);
-	glutMouseFunc(mouse);
+//	glutMouseFunc(mouseOrigin);
 	glutIdleFunc(idle2);
 	glutDisplayFunc(display2);
 	glutReshapeFunc(reshape);
