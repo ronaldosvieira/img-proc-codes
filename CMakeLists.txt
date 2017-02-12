@@ -26,7 +26,7 @@ foreach(i RANGE 1 8)
 
 	add_executable(trabalho${i} ${TRABALHO_${i}})
 
-	set_property(TARGET trabalho${i} APPEND PROPERTY INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/trabalho${i}/include" "${CMAKE_SOURCE_DIR}/libs/pixellab/src")
+	set_property(TARGET trabalho${i} APPEND PROPERTY INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/trabalho${i}/include" "${CMAKE_SOURCE_DIR}/libs/pixellab/src" "${CMAKE_SOURCE_DIR}/libs/debug")
 
 	target_link_libraries(trabalho${i} trabalho${i}_lib ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${PNG_LIBRARIES} ${GLUI_LIBRARY})
 
