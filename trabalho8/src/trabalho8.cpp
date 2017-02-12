@@ -24,9 +24,12 @@ PixelLab *img = NULL;
 PixelLab *imgMod = NULL;
 
 GLUI_RadioGroup *radio, *radio2;
+//GLUI_RadioGroup *radio;
 GLUI_RadioButton *buttons[3];
 GLUI_Button *autoThresholdButton, *manualThresholdButton;
 GLUI_Spinner *noiseSpinner, *spinner;
+
+GLUI_Listbox* seed_list = nullptr;
 
 int orig_window, edited_window;
 int UI_width = 0;
@@ -43,11 +46,23 @@ char output[512];
 
 bool isTransformed = false;
 
+int selected_seed = 0;
+
 int lineX = 0;
 int lineY = 0;
 
 float lineX_norm = 0;
 float lineY_norm = 0;
+
+// Seed edit values
+int edit_value_x, edit_value_y;
+int edit_value_r, edit_value_g, edit_value_b;
+int edit_value_min, edit_value_max;
+
+// Seed buttons
+GLUI_Spinner *edit_seed_x, *edit_seed_y;
+GLUI_Spinner *edit_seed_r, *edit_seed_g, *edit_seed_b;
+GLUI_Spinner *edit_seed_min, *edit_seed_max;
 
 class color {
 
@@ -142,6 +157,9 @@ static void display(void) {
 
 	if (pickingPoint) {
 		drawLines(lineX_norm, lineY_norm);
+
+		edit_seed_x->set_int_val(lineX);
+		edit_seed_y->set_int_val(lineY);
 	}
 
 	GLUI_Master.auto_set_viewport();
@@ -286,8 +304,6 @@ void applyThreshold(int threshold) {
 	refresh(edited_window);
 }
 
-
-
 void drawLines(float x, float y) {
 	glColor3f(1.0, 0, 0);
 	glBegin(GL_LINES);
@@ -373,6 +389,27 @@ void control(int value) {
 		refresh(edited_window);
 
 		break;
+
+	case 7: {
+
+		Log("%s selected", seed_list->get_item_ptr(selected_seed)->text.c_str());
+		Log("%d", edit_value_x);
+
+		break;
+	}
+
+	case 8: {
+		// Add seed button
+		pickingPoint = true;
+
+		break;
+	}
+
+	case 9: {
+		// Set seed values button
+
+		break;
+	}
 	}
 
 }
@@ -399,6 +436,9 @@ static void mouse(int button, int state, int x, int y) {
 	 }
 	 }*/
 
+	if (pickingPoint && button == GLUT_LEFT_BUTTON) {
+		pickingPoint = false;
+	}
 }
 
 #define NORM_Y(f) (((float) f) /img->GetHeight())
@@ -438,12 +478,74 @@ void initGLUI() {
 			control);
 	b1->set_w(50);
 	b2->set_w(50);
+
 	GLUI_Panel* filter_panel = glui->add_panel((char*) ("Manual Threshold"));
 	radio2 = glui->add_radiogroup_to_panel(filter_panel, &option, 3, control);
 	glui->add_radiobutton_to_group(radio2, (char*) ("Automatic"));
 	glui->add_radiobutton_to_group(radio2, (char*) ("Manual"));
 	spinner = glui->add_spinner_to_panel(filter_panel, (char*) ("Threshold"),
 	GLUI_SPINNER_INT, &filterRadio, 4, control);
+
+	// Seeds panel
+	GLUI_Panel* seed_panel = glui->add_panel((char*) ("Seeds"));
+
+	// Add seed button
+	GLUI_Button* button_add_seed = glui->add_button_to_panel(seed_panel,
+			(char*) ("Add seed"), 8, control);
+
+	// List of seeds
+	seed_list = glui->add_listbox_to_panel(seed_panel, "Seed: ", &selected_seed,
+			7, control);
+	seed_list->set_w(185);
+
+//	GLUI_Button* set_seed_values_button = glui->add_button_to_panel(seed_panel, (char*) ("Set values to seed"), 8,
+//				control);
+
+	seed_list->add_item(0, "aaa");
+	seed_list->add_item(1, "abc");
+
+	// Seed position
+	edit_seed_x = glui->add_spinner_to_panel(seed_panel, (char*) ("X"),
+			GLUI_SPINNER_INT, &edit_value_x);
+	edit_seed_x->set_w(185);
+	edit_seed_x->set_int_limits(0, img->GetWidth());
+
+	edit_seed_y = glui->add_spinner_to_panel(seed_panel, (char*) ("Y"),
+	GLUI_EDITTEXT_INT, &edit_value_y);
+	edit_seed_y->set_w(185);
+	edit_seed_y->set_int_limits(0, img->GetHeight());
+
+	// Seed color
+	edit_seed_r = glui->add_spinner_to_panel(seed_panel, (char*) ("R"),
+	GLUI_EDITTEXT_INT, &edit_value_r);
+	edit_seed_r->set_w(185);
+	edit_seed_r->set_int_limits(0, 255);
+
+	edit_seed_g = glui->add_spinner_to_panel(seed_panel, (char*) ("G"),
+	GLUI_EDITTEXT_INT, &edit_value_g);
+	edit_seed_g->set_w(185);
+	edit_seed_g->set_int_limits(0, 255);
+
+	edit_seed_b = glui->add_spinner_to_panel(seed_panel, (char*) ("B"),
+	GLUI_EDITTEXT_INT, &edit_value_b);
+	edit_seed_b->set_w(185);
+	edit_seed_b->set_int_limits(0, 255);
+
+	// Seed threshold
+	edit_seed_min = glui->add_spinner_to_panel(seed_panel, (char*) ("Min"),
+	GLUI_EDITTEXT_INT, &edit_value_min);
+	edit_seed_min->set_w(185);
+	edit_seed_min->set_int_limits(0, 255);
+
+	edit_seed_max = glui->add_spinner_to_panel(seed_panel, (char*) ("Max"),
+	GLUI_EDITTEXT_INT, &edit_value_max);
+	edit_seed_max->set_w(185);
+	edit_seed_max->set_int_limits(0, 255);
+
+	// Save button
+	GLUI_Button* button_set_values = glui->add_button_to_panel(seed_panel,
+			(char*) ("Set values"), 9, control);
+
 	spinner->disable();
 	glui->add_button((char*) ("Apply"), 5, control);
 	glui->add_button((char*) ("Reset"), 6, control);
