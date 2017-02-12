@@ -13,7 +13,7 @@ find_package(GLUI REQUIRED)
 # - http://packages.ubuntu.com/precise/amd64/libglui2c2/download
 # - http://packages.ubuntu.com/precise/amd64/libglui-dev/download
 
-foreach(i RANGE 1 7)
+foreach(i RANGE 1 8)
 
 	file(GLOB_RECURSE TRABALHO_${i}
 	    "trabalho$${i}/*.hpp"
@@ -26,7 +26,7 @@ foreach(i RANGE 1 7)
 
 	add_executable(trabalho${i} ${TRABALHO_${i}})
 
-	set_property(TARGET trabalho${i} APPEND PROPERTY INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/trabalho${i}/include")
+	set_property(TARGET trabalho${i} APPEND PROPERTY INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/trabalho${i}/include" "${CMAKE_SOURCE_DIR}/libs/pixellab/src")
 
 	target_link_libraries(trabalho${i} trabalho${i}_lib ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${PNG_LIBRARIES} ${GLUI_LIBRARY})
 
