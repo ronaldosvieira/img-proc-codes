@@ -4,6 +4,7 @@
 #endif
 #include <iostream>
 #include <cmath>
+#include <sstream>
 #include <ctime>
 #include <algorithm>
 #include "GL/glui.h"
@@ -35,6 +36,7 @@ GLUI_Spinner* spinner_matrix_size;
 // Matrix values
 int checkboxes_size = 1;
 int *checkboxes_state;
+bool values_updated = false;
 
 int orig_window, edited_window;
 int UI_width = 0;
@@ -156,6 +158,18 @@ int calcMean(int floor, int roof) {
 void applyAutoThreshold();
 void applyManualThreshold();
 
+bool checkBounds(int x, int y, int sizeX, int sizeY) {
+	if ((x >= 0) && (y >= 0) && (x < sizeX) && (y < sizeY)) {
+		return true;
+	}
+
+	return false;
+}
+
+int count = 0;
+
+void drawCheckboxes(bool show = true);
+
 void applyErosion() {
 	if (option == 0) {
 		applyAutoThreshold();
@@ -163,7 +177,57 @@ void applyErosion() {
 		applyManualThreshold();
 	}
 
-	// TODO Impĺement erosion
+	drawCheckboxes(false);
+
+	const auto size = morpho_matrix_size;
+
+	PixelLab* imgModOrig = new PixelLab();
+	imgModOrig->Copy(imgMod);
+
+	int matrix[size][size];
+
+	for (int l = 0; l < size; ++l) {
+		for (int c = 0; c < size; ++c) {
+			matrix[l][c] = checkboxes_state[POS(c, l, size)];
+		}
+	}
+
+	// WOW
+	for (int i_y = 0; i_y < img->GetHeight(); ++i_y) {
+		for (int i_x = 0; i_x < img->GetWidth(); ++i_x) {
+
+			auto fit = false;
+
+			for (int m_y = -(size / 2); m_y < ((size / 2) + 1); ++m_y) {
+				for (int m_x = -(size / 2); m_x < ((size / 2) + 1); ++m_x) {
+
+					auto currentX = i_x + m_x;
+					auto currentY = i_y + m_y;
+
+					auto matrix_i_x = m_x + (size / 2);
+					auto matrix_i_y = m_y + (size / 2);
+
+					if (checkBounds(currentX, currentY, img->GetWidth(),
+							img->GetHeight())) {
+
+						if ((matrix[matrix_i_y][matrix_i_x] == 1)
+								&& (imgModOrig->GetGrayValue(currentX, currentY)
+										== 0xFF)) {
+							fit = true;
+						}
+					}
+				}
+			}
+
+			if (fit) {
+				imgMod->SetGrayValue(i_x, i_y, 0xFF);
+			} else {
+				imgMod->SetGrayValue(i_x, i_y, 0);
+			}
+		}
+	}
+
+	delete imgModOrig;
 
 	refresh(edited_window);
 }
@@ -175,7 +239,57 @@ void applyDilatation() {
 		applyManualThreshold();
 	}
 
-	// TODO Impĺement dilatation
+	drawCheckboxes(false);
+
+	const auto size = morpho_matrix_size;
+
+	PixelLab* imgModOrig = new PixelLab();
+	imgModOrig->Copy(imgMod);
+
+	int matrix[size][size];
+
+	for (int l = 0; l < size; ++l) {
+		for (int c = 0; c < size; ++c) {
+			matrix[l][c] = checkboxes_state[POS(c, l, size)];
+		}
+	}
+
+	// WOW
+	for (int i_y = 0; i_y < img->GetHeight(); ++i_y) {
+		for (int i_x = 0; i_x < img->GetWidth(); ++i_x) {
+
+			auto fit = true;
+
+			for (int m_y = -(size / 2); m_y < ((size / 2) + 1); ++m_y) {
+				for (int m_x = -(size / 2); m_x < ((size / 2) + 1); ++m_x) {
+
+					auto currentX = i_x + m_x;
+					auto currentY = i_y + m_y;
+
+					auto matrix_i_x = m_x + (size / 2);
+					auto matrix_i_y = m_y + (size / 2);
+
+					if (checkBounds(currentX, currentY, img->GetWidth(),
+							img->GetHeight())) {
+
+						if ((matrix[matrix_i_y][matrix_i_x] == 1)
+								&& (imgModOrig->GetGrayValue(currentX, currentY)
+										== 0x0)) {
+							fit = false;
+						}
+					}
+				}
+			}
+
+			if (fit) {
+				imgMod->SetGrayValue(i_x, i_y, 0xFF);
+			} else {
+				imgMod->SetGrayValue(i_x, i_y, 0);
+			}
+		}
+	}
+
+	delete imgModOrig;
 
 	refresh(edited_window);
 }
@@ -191,6 +305,10 @@ void applyThreshold(int threshold) {
 			int value = mat[y][x].value >= threshold ? 255 : 0;
 
 			mat[y][x].value = value;
+			mat[y][x].R = value;
+			mat[y][x].G = value;
+			mat[y][x].B = value;
+			mat[y][x].A = 0xFF;
 		}
 	}
 
@@ -200,6 +318,60 @@ void applyThreshold(int threshold) {
 
 	// TODO Remove this line
 	refresh(edited_window);
+}
+
+void drawCheckboxes(bool show) {
+
+	if (!values_updated) {
+
+		for (int i = 0; i < checkboxes_size; ++i) {
+			checkboxes_matrix[i]->unlink();
+
+			free(checkboxes_matrix[i]);
+		}
+
+		// Delete panel for remove columns
+		matrix_panel->unlink();
+		free(matrix_panel);
+		matrix_panel = glui_matrix->add_panel((char*) ("Matrix"));
+
+		checkboxes_size = morpho_matrix_size * morpho_matrix_size;
+
+		free(checkboxes_matrix);
+		free(checkboxes_state);
+
+		checkboxes_matrix = (GLUI_Checkbox**) malloc(
+				checkboxes_size * sizeof(GLUI_Checkbox*));
+
+		checkboxes_state = (int*) malloc(checkboxes_size * sizeof(int));
+
+		for (int i = 0; i < checkboxes_size; ++i) {
+			checkboxes_state[i] = 0;
+		}
+
+		for (int i = 0; i < morpho_matrix_size; ++i) {
+			for (int j = 0; j < morpho_matrix_size; ++j) {
+
+				auto pos = POS(i, j, morpho_matrix_size);
+
+				checkboxes_matrix[pos] = glui_matrix->add_checkbox_to_panel(
+						matrix_panel, "", &checkboxes_state[pos], pos);
+			}
+
+			if (i < (morpho_matrix_size - 1)) {
+				glui_matrix->add_column_to_panel(matrix_panel, false);
+			}
+		}
+
+		button_matrix_ok->unlink();
+		button_matrix_ok->link_this_to_sibling_next(matrix_panel);
+
+		glui_matrix->refresh();
+	}
+
+	if (show) {
+		glui_matrix->show();
+	}
 }
 
 void applyAutoThreshold() {
@@ -228,9 +400,9 @@ void applyManualThreshold() {
 	applyThreshold(spinner->get_int_val());
 }
 
-void control_checkboxes(int value) {
-	Log("%d", value);
-}
+//void control_checkboxes(int value) {
+//	Log("%d", value);
+//}
 
 void control(int value) {
 	switch (value) {
@@ -270,6 +442,7 @@ void control(int value) {
 		} else if (option == 1) {
 			applyManualThreshold();
 		}
+//		applyErosion();
 
 		break;
 	case 6:
@@ -285,60 +458,14 @@ void control(int value) {
 			spinner_matrix_size->set_int_val(morpho_matrix_size + 1);
 		}
 
+		values_updated = false;
+
 		break;
 	}
 
 	case 8: {
 		// Set values button
-		if (checkboxes_size != (morpho_matrix_size * morpho_matrix_size)) {
-
-			for (int i = 0; i < checkboxes_size; ++i) {
-				checkboxes_matrix[i]->unlink();
-
-				free(checkboxes_matrix[i]);
-			}
-
-			// Delete panel for remove columns
-			matrix_panel->unlink();
-			free(matrix_panel);
-			matrix_panel = glui_matrix->add_panel((char*) ("Matrix"));
-
-			checkboxes_size = morpho_matrix_size * morpho_matrix_size;
-
-			free(checkboxes_matrix);
-			free(checkboxes_state);
-
-			checkboxes_matrix = (GLUI_Checkbox**) malloc(
-					checkboxes_size * sizeof(GLUI_Checkbox*));
-
-			checkboxes_state = (int*) malloc(checkboxes_size * sizeof(int));
-
-			for (int i = 0; i < checkboxes_size; ++i) {
-				checkboxes_state[i] = 1;
-			}
-
-			for (int i = 0; i < morpho_matrix_size; ++i) {
-				for (int j = 0; j < morpho_matrix_size; ++j) {
-
-					auto pos = POS(i, j, morpho_matrix_size);
-
-					checkboxes_matrix[pos] = glui_matrix->add_checkbox_to_panel(
-							matrix_panel, "", &checkboxes_state[pos], pos,
-							control_checkboxes);
-				}
-
-				if (i < (morpho_matrix_size - 1)) {
-					glui_matrix->add_column_to_panel(matrix_panel, false);
-				}
-			}
-
-			button_matrix_ok->unlink();
-			button_matrix_ok->link_this_to_sibling_next(matrix_panel);
-
-			glui_matrix->refresh();
-		}
-
-		glui_matrix->show();
+		drawCheckboxes();
 
 		break;
 	}
@@ -346,6 +473,21 @@ void control(int value) {
 	case 9: {
 		// Matrix ok button
 		glui_matrix->hide();
+		values_updated = true;
+
+		break;
+	}
+
+	case 10: {
+
+		applyErosion();
+
+		break;
+	}
+
+	case 11: {
+
+		applyDilatation();
 
 		break;
 	}
@@ -426,6 +568,8 @@ void initGLUI() {
 			(char*) ("Set values"), 8, control);
 
 	glui->add_button((char*) ("Apply"), 5, control);
+	glui->add_button((char*) ("Apply Erosion"), 10, control);
+	glui->add_button((char*) ("Apply Dilatation"), 11, control);
 	glui->add_button((char*) ("Reset"), 6, control);
 	glui->add_button((char*) ("Quit"), 0, (GLUI_Update_CB) (exit));
 
@@ -444,7 +588,7 @@ void initGLUI() {
 
 	for (int i = 0; i < checkboxes_size; ++i) {
 		checkboxes_matrix[i] = glui_matrix->add_checkbox_to_panel(matrix_panel,
-				"", &checkboxes_state[i], i, control_checkboxes);
+				"", &checkboxes_state[i], i);
 	}
 
 	button_matrix_ok = glui_matrix->add_button("Ok", 9, control);
@@ -495,7 +639,7 @@ int main(int argc, char *argv[]) {
 //GLUI_SUBWINDOW_RIGHT);
 	initGLUI();
 	GLUI_Master.set_glutIdleFunc(idle);
-	computeUIWidth(); // Compute the size of the user interface
+	computeUIWidth();	// Compute the size of the user interface
 	glutReshapeWindow(imgMod->GetWidth() + UI_width, imgMod->GetHeight());
 
 	glutMainLoop();
