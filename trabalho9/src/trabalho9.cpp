@@ -153,6 +153,33 @@ int calcMean(int floor, int roof) {
 	return mean;
 }
 
+void applyAutoThreshold();
+void applyManualThreshold();
+
+void applyErosion() {
+	if (option == 0) {
+		applyAutoThreshold();
+	} else if (option == 1) {
+		applyManualThreshold();
+	}
+
+	// TODO Impĺement erosion
+
+	refresh(edited_window);
+}
+
+void applyDilatation() {
+	if (option == 0) {
+		applyAutoThreshold();
+	} else if (option == 1) {
+		applyManualThreshold();
+	}
+
+	// TODO Impĺement dilatation
+
+	refresh(edited_window);
+}
+
 void applyThreshold(int threshold) {
 	pixel **mat;
 
@@ -171,6 +198,7 @@ void applyThreshold(int threshold) {
 	imgMod->DeallocatePixelMatrix(&mat, imgMod->GetHeight(),
 			imgMod->GetWidth());
 
+	// TODO Remove this line
 	refresh(edited_window);
 }
 
