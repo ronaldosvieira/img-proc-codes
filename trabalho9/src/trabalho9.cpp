@@ -27,7 +27,7 @@ GLUI_Spinner *noiseSpinner, *spinner;
 
 // Matrix values window
 GLUI* glui_matrix;
-
+GLUI_Panel* matrix_panel;
 GLUI_Checkbox** checkboxes_matrix;
 
 // Matrix values
@@ -257,13 +257,7 @@ void control(int value) {
 
 	case 8: {
 		// Set values button
-//		checkboxes_matrix = (GLUI_Checkbox**) malloc(
-//				checkboxes_size * sizeof(GLUI_Checkbox*));
-//		checkboxes_state = (int*) malloc(checkboxes_size * sizeof(int));
-
-		Log("%d %d", checkboxes_size, morpho_matrix_size);
-
-		if (checkboxes_size != morpho_matrix_size) {
+		if (checkboxes_size != (morpho_matrix_size * morpho_matrix_size)) {
 
 			for (int i = 0; i < checkboxes_size; ++i) {
 				checkboxes_matrix[i]->unlink();
@@ -291,20 +285,27 @@ void control(int value) {
 					auto pos = POS(i, j, morpho_matrix_size);
 
 					checkboxes_matrix[pos] =
-							glui_matrix->add_checkbox("",
+							glui_matrix->add_checkbox_to_panel(matrix_panel, "",
 									&checkboxes_state[pos], pos, control_checkboxes);
 				}
 
 				if (i < (morpho_matrix_size - 1)) {
-					glui_matrix->add_column();
+					glui_matrix->add_column_to_panel(matrix_panel);
 				}
 
 			}
+
+//			glui_matrix->refresh();
 		}
 
-		glui_matrix->refresh();
-
 		glui_matrix->show();
+
+		break;
+	}
+
+	case 9: {
+		// Matrix ok button
+		glui_matrix->hide();
 
 		break;
 	}
@@ -395,17 +396,20 @@ void initGLUI() {
 	// ********************************************
 	glui_matrix = GLUI_Master.create_glui("Matrix");
 
+	matrix_panel = glui_matrix->add_panel((char*) ("Matrix"));
+
 	checkboxes_matrix = (GLUI_Checkbox**) malloc(
 			checkboxes_size * sizeof(GLUI_Checkbox*));
 	checkboxes_state = (int*) malloc(checkboxes_size * sizeof(int));
 
 	for (int i = 0; i < checkboxes_size; ++i) {
-		checkboxes_matrix[i] = glui_matrix->add_checkbox("",
+		checkboxes_matrix[i] = glui_matrix->add_checkbox_to_panel(matrix_panel, "",
 				&checkboxes_state[i], i, control_checkboxes);
 	}
 
+	GLUI_Button* button_matrix_ok = glui_matrix->add_button("Ok", 9, control);
+
 	glui_matrix->hide();
-//	GLUI_Panel* matriz_panel = glui->add_panel((char*) ("Morphology"));
 
 	glui_matrix->set_main_gfx_window(orig_window);
 }
