@@ -30,6 +30,7 @@ GLUI* glui_matrix;
 GLUI_Panel* matrix_panel;
 GLUI_Checkbox** checkboxes_matrix;
 GLUI_Button* button_matrix_ok;
+GLUI_Spinner* spinner_matrix_size;
 
 // Matrix values
 int checkboxes_size = 1;
@@ -252,6 +253,9 @@ void control(int value) {
 
 	case 7: {
 		// Matrix size spinner
+		if (!(morpho_matrix_size % 2)) {
+			spinner_matrix_size->set_int_val(morpho_matrix_size + 1);
+		}
 
 		break;
 	}
@@ -290,9 +294,9 @@ void control(int value) {
 
 					auto pos = POS(i, j, morpho_matrix_size);
 
-					checkboxes_matrix[pos] =
-							glui_matrix->add_checkbox_to_panel(matrix_panel, "",
-									&checkboxes_state[pos], pos, control_checkboxes);
+					checkboxes_matrix[pos] = glui_matrix->add_checkbox_to_panel(
+							matrix_panel, "", &checkboxes_state[pos], pos,
+							control_checkboxes);
 				}
 
 				if (i < (morpho_matrix_size - 1)) {
@@ -383,7 +387,7 @@ void initGLUI() {
 	GLUI_Panel* morpho_panel = glui->add_panel((char*) ("Morphology"));
 
 	// Matrix size spinner
-	GLUI_Spinner* spinner_matrix_size = glui->add_spinner_to_panel(morpho_panel,
+	spinner_matrix_size = glui->add_spinner_to_panel(morpho_panel,
 			"Matrix size", GLUI_SPINNER_INT, &morpho_matrix_size, 7, control);
 	spinner_matrix_size->set_int_limits(1,
 			(img->GetWidth() < img->GetHeight()) ?
@@ -411,8 +415,8 @@ void initGLUI() {
 	checkboxes_state = (int*) malloc(checkboxes_size * sizeof(int));
 
 	for (int i = 0; i < checkboxes_size; ++i) {
-		checkboxes_matrix[i] = glui_matrix->add_checkbox_to_panel(matrix_panel, "",
-				&checkboxes_state[i], i, control_checkboxes);
+		checkboxes_matrix[i] = glui_matrix->add_checkbox_to_panel(matrix_panel,
+				"", &checkboxes_state[i], i, control_checkboxes);
 	}
 
 	button_matrix_ok = glui_matrix->add_button("Ok", 9, control);
