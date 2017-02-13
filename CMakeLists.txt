@@ -13,7 +13,7 @@ find_package(GLUI REQUIRED)
 # - http://packages.ubuntu.com/precise/amd64/libglui2c2/download
 # - http://packages.ubuntu.com/precise/amd64/libglui-dev/download
 
-foreach(i RANGE 1 8)
+foreach(i RANGE 1 9)
 
 	file(GLOB_RECURSE TRABALHO_${i}
 	    "trabalho$${i}/*.hpp"
