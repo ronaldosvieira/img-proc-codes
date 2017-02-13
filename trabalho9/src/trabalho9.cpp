@@ -314,7 +314,7 @@ void control(int value) {
 			checkboxes_state = (int*) malloc(checkboxes_size * sizeof(int));
 
 			for (int i = 0; i < checkboxes_size; ++i) {
-				checkboxes_state[i] = 0;
+				checkboxes_state[i] = 1;
 			}
 
 			for (int i = 0; i < morpho_matrix_size; ++i) {
