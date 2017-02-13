@@ -29,6 +29,7 @@ GLUI_Spinner *noiseSpinner, *spinner;
 GLUI* glui_matrix;
 GLUI_Panel* matrix_panel;
 GLUI_Checkbox** checkboxes_matrix;
+GLUI_Button* button_matrix_ok;
 
 // Matrix values
 int checkboxes_size = 1;
@@ -265,6 +266,11 @@ void control(int value) {
 				free(checkboxes_matrix[i]);
 			}
 
+			// Delete panel for remove columns
+			matrix_panel->unlink();
+			free(matrix_panel);
+			matrix_panel = glui_matrix->add_panel((char*) ("Matrix"));
+
 			checkboxes_size = morpho_matrix_size * morpho_matrix_size;
 
 			free(checkboxes_matrix);
@@ -290,12 +296,14 @@ void control(int value) {
 				}
 
 				if (i < (morpho_matrix_size - 1)) {
-					glui_matrix->add_column_to_panel(matrix_panel);
+					glui_matrix->add_column_to_panel(matrix_panel, false);
 				}
-
 			}
 
-//			glui_matrix->refresh();
+			button_matrix_ok->unlink();
+			button_matrix_ok->link_this_to_sibling_next(matrix_panel);
+
+			glui_matrix->refresh();
 		}
 
 		glui_matrix->show();
@@ -407,7 +415,7 @@ void initGLUI() {
 				&checkboxes_state[i], i, control_checkboxes);
 	}
 
-	GLUI_Button* button_matrix_ok = glui_matrix->add_button("Ok", 9, control);
+	button_matrix_ok = glui_matrix->add_button("Ok", 9, control);
 
 	glui_matrix->hide();
 
