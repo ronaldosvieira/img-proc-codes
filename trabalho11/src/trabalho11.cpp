@@ -9,6 +9,7 @@
 #include  <numeric>
 #include "GL/glui.h"
 #include "GL/glut.h"
+#include "Debug.h"
 
 int MAX_ITER = 10;
 int MIN_DIFF = 10;
@@ -33,6 +34,8 @@ char input[512];
 char output[512];
 
 bool isTransformed = false;
+
+void applyRLE();
 
 void idle() {
 	if (glutGetWindow() != orig_window)
@@ -214,11 +217,14 @@ void control(int value) {
 
 	case 7: {
 		// RLE
+		applyRLE();
+
 		break;
 	}
 
 	case 8: {
 		// Huffman
+		break;
 	}
 	}
 
@@ -243,7 +249,7 @@ bool operator ==(const struct pixel& p1, const struct pixel& p2) {
 
 void applyRLE() {
 
-	std::vector<std::vector<rle_data> > compression(img->GetHeight());
+	std::vector<std::vector<rle_data>> compression(img->GetHeight());
 
 	rle_data currentData { 0, { 0, 0, 0, 0, 0 } };
 
@@ -266,10 +272,16 @@ void applyRLE() {
 		}
 	}
 
-	auto size = std::accumulate(compression.begin(), compression.end(), 0,
-			[](uint last, std::vector<rle_data> el) {
+	auto size = std::accumulate(compression.begin(), compression.end(),
+			(long long unsigned) 0, [](long long unsigned last,
+					const std::vector<rle_data>& el) -> long long unsigned {
 				auto size = el.size() * sizeof(rle_data);
 			});
+
+	Log("%llu, %llu", size,
+			img->GetWidth() * img->GetHeight()
+					* (long long unsigned ) (sizeof(struct pixel)
+							- 2 * sizeof(uByte)));
 }
 
 static void key(unsigned char key, int x, int y) {
