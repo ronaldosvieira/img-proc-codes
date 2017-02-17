@@ -36,6 +36,8 @@ char output[512];
 bool isTransformed = false;
 
 void applyRLE();
+void applyLZW();
+void applyHuffman();
 
 void idle() {
 	if (glutGetWindow() != orig_window)
@@ -206,6 +208,7 @@ void control(int value) {
 		break;
 	case 5:
 		// LZW
+		applyLZW();
 
 		break;
 	case 6:
@@ -230,8 +233,71 @@ void control(int value) {
 
 }
 
+bool operator ==(const struct pixel& p1, const struct pixel& p2) {
+	return (p1.R == p2.R) && (p1.B == p2.G) && (p1.B == p2.B);
+}
+
 void applyLZW() {
-#warning "Implement this function"
+
+	std::vector<std::vector<uByte>> dict[3];
+
+	std::vector<int> output[3];
+
+	uByte C[3];
+	std::vector<uByte> P[3];
+	std::vector<uByte> P_C[3];
+
+	for (int y = 0; y < img->GetHeight(); ++y) {
+		for (int x = 0; x < img->GetWidth(); ++x) {
+			uByte byte[3] { 0 };
+
+			img->GetRGB(x, y, byte[0], byte[1], byte[2]);
+
+			for (int i = 0; i < 3; ++i) {
+				C[i] = byte[i];
+
+				P_C[i] = P[i];
+				P_C[i].push_back(C[i]);
+
+				auto it = std::find(dict[i].begin(), dict[i].end(), P_C[i]);
+
+				if (it == dict[i].end()) {
+					dict[i].push_back(P_C[i]);
+
+					output[i].push_back(
+							std::distance(
+									find(dict[i].begin(), dict[i].end(), P[i]),
+									dict[i].begin()));
+				}
+
+				P[i] = P_C[i];
+			}
+		}
+//		Log("Finalização da linha %d", y + 1);
+		std::printf("\rProgresso:\t%.2lf%%",
+				((y * 100.0) / img->GetHeight()) + 1);
+		std::fflush(stdout);
+	}
+
+	for (int i = 0; i < 3; ++i) {
+		output[i].push_back(
+				std::distance(find(dict[i].begin(), dict[i].end(), P[i]),
+						dict[i].begin()));
+	}
+
+	std::printf("\rProgresso:\t100.00%%\n");
+	std::fflush(stdout);
+
+	auto sizeLZW = (output[0].size() + output[1].size() + output[2].size())
+			* sizeof(int);
+
+	auto sizeOriginal = (img->GetWidth() * img->GetHeight())
+			* (long long unsigned) (sizeof(struct pixel) - 2 * sizeof(uByte));
+
+	std::printf("[LZW] Tamanho da imagem original: %.1lf KB\n",
+			sizeOriginal / 1024.0);
+	std::printf("[LZW] Tamanho da imagem compactada: %.1lf KB\n",
+			sizeLZW / 1024.0);
 }
 
 void applyHuffman() {
@@ -242,10 +308,6 @@ typedef struct _rle_data {
 	unsigned short frequency;
 	pixel c;
 } rle_data;
-
-bool operator ==(const struct pixel& p1, const struct pixel& p2) {
-	return (p1.R == p2.R) && (p1.B == p2.G) && (p1.B == p2.B);
-}
 
 void applyRLE() {
 
@@ -272,12 +334,14 @@ void applyRLE() {
 		}
 	}
 
-	auto sizeRLE = std::accumulate(compression.begin(), compression.end(),
-			(long long unsigned) 0, [](long long unsigned last,
-					const std::vector<rle_data>& el) -> long long unsigned {
+	auto sizeRLE =
+			std::accumulate(compression.begin(), compression.end(),
+					(long long unsigned) 0,
+					[](long long unsigned last,
+							const std::vector<rle_data>& el) -> long long unsigned {
 
-			return last+(el.size() * ((sizeof(rle_data) - 2 * sizeof(uByte))));
-		});
+						return last+(el.size() * ((sizeof(rle_data) - 2 * sizeof(uByte))));
+					});
 
 	auto sizeOriginal = (img->GetWidth() * img->GetHeight())
 			* (long long unsigned) (sizeof(struct pixel) - 2 * sizeof(uByte));
@@ -345,7 +409,8 @@ void initGLUI() {
 
 int main(int argc, char *argv[]) {
 	glutInit(&argc, argv);
-	strcpy(input, "figs/CT.lungs.png");
+//	strcpy(input, "figs/CT.lungs.png");
+	strcpy(input, "figs/2.png");
 	strcpy(output, "figs/output.png");
 
 	img = new PixelLab(input);
