@@ -239,7 +239,7 @@ void applyHuffman() {
 }
 
 typedef struct _rle_data {
-	uint frequency;
+	unsigned short frequency;
 	pixel c;
 } rle_data;
 
@@ -284,8 +284,8 @@ void applyRLE() {
 	auto sizeOriginal = (img->GetWidth() * img->GetHeight())
 			* (long long unsigned) (sizeof(struct pixel) - 2 * sizeof(uByte));
 
-	std::printf("[RLE] Tamanho da imagem original: %llu\n", sizeRLE);
-	std::printf("[RLE] Tamanho da imagem compactada: %llu\n", sizeOriginal);
+	std::printf("[RLE] Tamanho da imagem original: %.1lf KB\n", sizeRLE / 1024.0);
+	std::printf("[RLE] Tamanho da imagem compactada: %.1lf KB\n", sizeOriginal/1024.0);
 }
 
 static void key(unsigned char key, int x, int y) {
