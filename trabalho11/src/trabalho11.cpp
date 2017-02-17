@@ -272,20 +272,20 @@ void applyRLE() {
 		}
 	}
 
-	auto sizeRLE =
-			std::accumulate(compression.begin(), compression.end(),
-					(long long unsigned) 0,
-					[](long long unsigned last,
-							const std::vector<rle_data>& el) -> long long unsigned {
+	auto sizeRLE = std::accumulate(compression.begin(), compression.end(),
+			(long long unsigned) 0, [](long long unsigned last,
+					const std::vector<rle_data>& el) -> long long unsigned {
 
-						return last + (el.size() * ((sizeof(rle_data) - 2 * sizeof(uByte))));
-					});
+			return last+(el.size() * ((sizeof(rle_data) - 2 * sizeof(uByte))));
+		});
 
 	auto sizeOriginal = (img->GetWidth() * img->GetHeight())
 			* (long long unsigned) (sizeof(struct pixel) - 2 * sizeof(uByte));
 
-	std::printf("[RLE] Tamanho da imagem original: %.1lf KB\n", sizeRLE / 1024.0);
-	std::printf("[RLE] Tamanho da imagem compactada: %.1lf KB\n", sizeOriginal/1024.0);
+	std::printf("[RLE] Tamanho da imagem original: %.1lf KB\n",
+			sizeOriginal / 1024.0);
+	std::printf("[RLE] Tamanho da imagem compactada: %.1lf KB\n",
+			sizeRLE / 1024.0);
 }
 
 static void key(unsigned char key, int x, int y) {
