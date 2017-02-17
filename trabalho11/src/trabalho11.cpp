@@ -37,6 +37,7 @@ bool isTransformed = false;
 
 void applyRLE();
 void applyLZW();
+void applyLZW_RGB();
 void applyHuffman();
 
 void idle() {
@@ -208,7 +209,8 @@ void control(int value) {
 		break;
 	case 5:
 		// LZW
-		applyLZW();
+//		applyLZW();
+		applyLZW_RGB();
 
 		break;
 	case 6:
@@ -290,6 +292,62 @@ void applyLZW() {
 
 	auto sizeLZW = (output[0].size() + output[1].size() + output[2].size())
 			* sizeof(int);
+
+	auto sizeOriginal = (img->GetWidth() * img->GetHeight())
+			* (long long unsigned) (sizeof(struct pixel) - 2 * sizeof(uByte));
+
+	std::printf("[LZW] Tamanho da imagem original: %.1lf KB\n",
+			sizeOriginal / 1024.0);
+	std::printf("[LZW] Tamanho da imagem compactada: %.1lf KB\n",
+			sizeLZW / 1024.0);
+}
+
+void applyLZW_RGB() {
+
+	std::vector<std::vector<pixel>> dict;
+
+	std::vector<int> output;
+
+	pixel C;
+	std::vector<pixel> P;
+	std::vector<pixel> P_C;
+
+	for (int y = 0; y < img->GetHeight(); ++y) {
+		for (int x = 0; x < img->GetWidth(); ++x) {
+			pixel byte;
+
+			img->GetRGB(x, y, byte.R, byte.G, byte.B);
+
+			C = byte;
+
+			P_C = P;
+			P_C.push_back(C);
+
+			auto it = std::find(dict.begin(), dict.end(), P_C);
+
+			if (it == dict.end()) {
+				dict.push_back(P_C);
+
+				output.push_back(
+						std::distance(find(dict.begin(), dict.end(), P),
+								dict.begin()));
+			}
+
+			P = P_C;
+
+		}
+		std::printf("\rProgresso:\t%.2lf%%",
+				((y * 100.0) / img->GetHeight()) + 1);
+		std::fflush(stdout);
+	}
+
+	output.push_back(
+			std::distance(find(dict.begin(), dict.end(), P), dict.begin()));
+
+	std::printf("\rProgresso:\t100.00%%\n");
+	std::fflush(stdout);
+
+	auto sizeLZW = (output.size()) * (sizeof(pixel) - 2 * sizeof(uByte));
 
 	auto sizeOriginal = (img->GetWidth() * img->GetHeight())
 			* (long long unsigned) (sizeof(struct pixel) - 2 * sizeof(uByte));
